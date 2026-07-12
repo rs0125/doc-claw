@@ -24,8 +24,30 @@ const READ_ONLY_TOOLS = new Set([
 
 let openai: OpenAI | undefined;
 function client(): OpenAI {
-  openai ??= new OpenAI(); // reads OPENAI_API_KEY
+  // maxRetries covers 429/5xx/connection errors with the SDK's own backoff;
+  // timeout bounds a hung request so a turn fails fast rather than hanging.
+  openai ??= new OpenAI({ maxRetries: 5, timeout: 60_000 });
   return openai;
+}
+
+/** Chat completion with a small extra backoff layer over the SDK's retries. */
+async function createCompletion(
+  body: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
+): Promise<OpenAI.Chat.Completions.ChatCompletion> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await client().chat.completions.create(body);
+    } catch (err) {
+      lastErr = err;
+      // Retry only transient failures; surface auth/validation errors immediately.
+      const status = (err as { status?: number }).status;
+      const transient = status === undefined || status === 429 || (status >= 500 && status < 600);
+      if (!transient) throw err;
+      await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
+    }
+  }
+  throw lastErr;
 }
 
 function systemPrompt(
@@ -152,7 +174,7 @@ export async function runAgentTurn(doctor: Doctor, userMessageAt: Date): Promise
       forceConfirm && round === 0
         ? ({ type: "function", function: { name: "confirm_action" } } as const)
         : undefined;
-    const completion = await client().chat.completions.create({
+    const completion = await createCompletion({
       model: process.env.OPENAI_MODEL ?? "gpt-4o",
       temperature: 0.2, // instruction-following over creativity; this is a records clerk
       messages,
