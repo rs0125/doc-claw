@@ -4,7 +4,6 @@ import { useState } from "react";
 import { HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { Tooltip } from "@/components/ui/tooltip";
 
 const SECTIONS: { title: string; items: string[] }[] = [
   {
@@ -47,11 +46,10 @@ export function HelpPanel() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Tooltip label="Help" side="bottom">
-        <Button variant="ghost" size="sm" aria-label="Help" onClick={() => setOpen(true)}>
-          <HelpCircle />
-        </Button>
-      </Tooltip>
+      <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+        <HelpCircle />
+        Help
+      </Button>
       <Modal open={open} onClose={() => setOpen(false)} title="How Kordex Health works">
         <div className="flex max-h-[70dvh] flex-col gap-4 overflow-y-auto text-sm">
           {SECTIONS.map((s) => (

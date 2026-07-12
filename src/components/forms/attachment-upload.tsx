@@ -7,9 +7,16 @@ import { Button } from "@/components/ui/button";
 
 type Kind = "PRESCRIPTION" | "DISCHARGE_SUMMARY" | "LAB_REPORT" | "OTHER";
 
-/** Uploads an image/PDF straight to R2 via a presigned PUT, then confirms. */
-export function AttachmentUpload({ patientId }: { patientId: string }) {
-  const [kind, setKind] = useState<Kind>("PRESCRIPTION");
+/** Uploads an image/PDF straight to R2 via a presigned PUT, then confirms.
+ * With a fixed `kind` the type selector is hidden (used inside a record section). */
+export function AttachmentUpload({
+  patientId,
+  kind: fixedKind,
+}: {
+  patientId: string;
+  kind?: Kind;
+}) {
+  const [kind, setKind] = useState<Kind>(fixedKind ?? "PRESCRIPTION");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -52,17 +59,19 @@ export function AttachmentUpload({ patientId }: { patientId: string }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <select
-          value={kind}
-          onChange={(e) => setKind(e.target.value as Kind)}
-          disabled={busy}
-          className="h-9 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <option value="PRESCRIPTION">Prescription</option>
-          <option value="DISCHARGE_SUMMARY">Discharge summary</option>
-          <option value="LAB_REPORT">Lab report</option>
-          <option value="OTHER">Other</option>
-        </select>
+        {!fixedKind && (
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as Kind)}
+            disabled={busy}
+            className="h-9 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="PRESCRIPTION">Prescription</option>
+            <option value="DISCHARGE_SUMMARY">Discharge summary</option>
+            <option value="LAB_REPORT">Lab report</option>
+            <option value="OTHER">Other</option>
+          </select>
+        )}
         <Button
           type="button"
           variant="outline"
