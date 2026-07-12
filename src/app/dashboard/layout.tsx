@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
+import { HelpPanel } from "@/components/help-panel";
 import { getSessionDoctor } from "@/lib/web-auth";
 import { logout } from "./actions";
 
@@ -18,12 +20,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <span className="text-sm font-semibold">Kordex Health</span>
           <span className="text-xs text-muted-foreground">{doctor.name}</span>
         </Link>
-        <form action={logout}>
-          <Button variant="ghost" size="sm" type="submit" aria-label="Sign out">
-            <LogOut />
-            <span className="hidden sm:inline">Sign out</span>
-          </Button>
-        </form>
+        <div className="flex items-center gap-1">
+          <HelpPanel />
+          <Tooltip label="Account & Telegram" side="bottom">
+            <Link href="/dashboard/account">
+              <Button variant="ghost" size="sm" aria-label="Account">
+                <Settings />
+                <span className="hidden sm:inline">Account</span>
+              </Button>
+            </Link>
+          </Tooltip>
+          <form action={logout}>
+            <Tooltip label="Sign out" side="bottom">
+              <Button variant="ghost" size="sm" type="submit" aria-label="Sign out">
+                <LogOut />
+                <span className="hidden sm:inline">Sign out</span>
+              </Button>
+            </Tooltip>
+          </form>
+        </div>
       </header>
       <main className="flex-1 px-4 py-4">{children}</main>
     </div>

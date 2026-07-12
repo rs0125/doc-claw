@@ -4,6 +4,7 @@ import { ArrowLeft, FileText, Pill, Stethoscope, Download, Plus, Pencil, Papercl
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import { AttachmentUpload } from "@/components/forms/attachment-upload";
 import { getSessionDoctor, webAuth } from "@/lib/web-auth";
 import { ApiError } from "@/lib/http";
@@ -68,11 +69,13 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
         <CardHeader>
           <div className="flex items-start justify-between gap-2">
             <CardTitle className="text-lg">{patient.name}</CardTitle>
-            <Link href={`/dashboard/patients/${id}/edit`}>
-              <Button variant="outline" size="sm">
-                <Pencil /> Edit
-              </Button>
-            </Link>
+            <Tooltip label="Edit patient details">
+              <Link href={`/dashboard/patients/${id}/edit`}>
+                <Button variant="outline" size="sm">
+                  <Pencil /> Edit
+                </Button>
+              </Link>
+            </Tooltip>
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
             <span>DOB {fmtDate(patient.dateOfBirth)}</span>
@@ -119,12 +122,14 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
           <Card key={rx.id} className="p-4">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-medium">{fmtDate(rx.date)}</span>
-              <a
-                href={`/dl/prescription/${rx.id}`}
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <Download className="size-3.5" /> PDF
-              </a>
+              <Tooltip label="Download prescription PDF">
+                <a
+                  href={`/dl/prescription/${rx.id}`}
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Download className="size-3.5" /> PDF
+                </a>
+              </Tooltip>
             </div>
             <ul className="flex flex-col gap-1 text-sm">
               {meds(rx.medications).map((m, i) => (
@@ -156,20 +161,24 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
               {fmtDate(s.admissionDate)} → {fmtDate(s.dischargeDate)}
             </p>
             <div className="mt-2 flex items-center gap-3">
-              <a
-                href={`/dl/summary/${s.id}`}
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <Download className="size-3.5" /> PDF
-              </a>
+              <Tooltip label="Download discharge summary PDF">
+                <a
+                  href={`/dl/summary/${s.id}`}
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Download className="size-3.5" /> PDF
+                </a>
+              </Tooltip>
               {s.status === "DRAFT" && (
                 <form action={finalizeSummaryAction.bind(null, s.id, id)}>
-                  <button
-                    type="submit"
-                    className="text-xs font-medium text-primary hover:underline"
-                  >
-                    Finalize
-                  </button>
+                  <Tooltip label="Lock this summary — it can't be edited after">
+                    <button
+                      type="submit"
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      Finalize
+                    </button>
+                  </Tooltip>
                 </form>
               )}
             </div>
@@ -262,11 +271,13 @@ function Section({
           <span className="text-xs font-normal">({count})</span>
         </h2>
         {addHref && (
-          <Link href={addHref}>
-            <Button variant="ghost" size="sm">
-              <Plus /> Add
-            </Button>
-          </Link>
+          <Tooltip label={`Add ${title.toLowerCase()}`}>
+            <Link href={addHref}>
+              <Button variant="ghost" size="sm">
+                <Plus /> Add
+              </Button>
+            </Link>
+          </Tooltip>
         )}
       </div>
       {count === 0 ? (
