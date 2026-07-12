@@ -45,7 +45,27 @@ export async function proposeAction(
   payload: unknown,
 ) {
   actionSchemas[type].parse(payload); // reject malformed proposals immediately
-  return prisma.pendingAction.create({
+
+  // Models sometimes re-propose (same type + payload) when they should confirm,
+  // or after a change is already saved. Detect both so the tool layer can nudge
+  // the model to the right action instead of creating duplicates.
+  const recent = await prisma.pendingAction.findMany({
+    where: {
+      doctorId: auth.doctor.id,
+      type,
+      OR: [
+        { status: "PENDING", expiresAt: { gt: new Date() } },
+        { status: "CONFIRMED", resolvedAt: { gt: new Date(Date.now() - 30 * 60_000) } },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const identical = recent.find((a) => deepEqual(a.payload, payload));
+  if (identical?.status === "PENDING") return { action: identical, status: "duplicate_pending" as const };
+  if (identical?.status === "CONFIRMED") return { action: identical, status: "already_saved" as const };
+
+  const action = await prisma.pendingAction.create({
     data: {
       doctorId: auth.doctor.id,
       type,
@@ -53,6 +73,19 @@ export async function proposeAction(
       expiresAt: new Date(Date.now() + ttlMinutes() * 60_000),
     },
   });
+  return { action, status: "created" as const };
+}
+
+/** Order-insensitive structural equality via canonical JSON. */
+function deepEqual(a: unknown, b: unknown): boolean {
+  return canonical(a) === canonical(b);
+}
+
+function canonical(v: unknown): string {
+  if (v === null || typeof v !== "object") return JSON.stringify(v);
+  if (Array.isArray(v)) return `[${v.map(canonical).join(",")}]`;
+  const keys = Object.keys(v as Record<string, unknown>).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonical((v as Record<string, unknown>)[k])}`).join(",")}}`;
 }
 
 export async function listPendingActions(auth: AuthContext) {

@@ -212,7 +212,21 @@ export async function executeTool(
 }
 
 async function propose(auth: AuthContext, type: PendingActionType, payload: unknown) {
-  const action = await proposeAction(auth, type, payload);
+  const { action, status } = await proposeAction(auth, type, payload);
+  if (status === "already_saved") {
+    return {
+      actionId: action.id,
+      status: "ALREADY_SAVED",
+      note: "An identical change was ALREADY saved. Do not propose or confirm again — just tell the doctor it is already saved.",
+    };
+  }
+  if (status === "duplicate_pending") {
+    return {
+      actionId: action.id,
+      status: "PENDING",
+      note: `Identical to a proposal already awaiting confirmation (${action.id}). Do NOT re-propose. If the doctor approved it, call confirm_action('${action.id}'); if they asked whether it saved, tell them it is NOT yet saved and ask them to confirm.`,
+    };
+  }
   return { actionId: action.id, status: "PENDING", expiresAt: action.expiresAt, note: PROPOSE_NOTE };
 }
 

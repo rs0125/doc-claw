@@ -4,7 +4,7 @@ const prismaMock = vi.hoisted(() => ({
   pendingAction: {
     create: vi.fn(),
     findFirst: vi.fn(),
-    findMany: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
     update: vi.fn(),
   },
 }));
@@ -46,8 +46,38 @@ describe("proposeAction", () => {
   });
 
   it("stores a valid proposal without executing it", async () => {
+    prismaMock.pendingAction.findMany.mockResolvedValue([]);
     prismaMock.pendingAction.create.mockResolvedValue(pendingRow());
-    await proposeAction(auth, "patient.create", { data: { name: "Ramesh" } });
+    const result = await proposeAction(auth, "patient.create", { data: { name: "Ramesh" } });
+    expect(prismaMock.pendingAction.create).toHaveBeenCalledOnce();
+    expect(result.status).toBe("created");
+  });
+
+  it("returns the existing pending action instead of duplicating an identical proposal", async () => {
+    prismaMock.pendingAction.findMany.mockResolvedValue([
+      pendingRow({ payload: { data: { name: "Ramesh" } } }),
+    ]);
+    const result = await proposeAction(auth, "patient.create", { data: { name: "Ramesh" } });
+    expect(result.status).toBe("duplicate_pending");
+    expect(prismaMock.pendingAction.create).not.toHaveBeenCalled();
+  });
+
+  it("flags an identical recently-confirmed action as already saved", async () => {
+    prismaMock.pendingAction.findMany.mockResolvedValue([
+      pendingRow({ status: "CONFIRMED", payload: { data: { name: "Ramesh" } } }),
+    ]);
+    const result = await proposeAction(auth, "patient.create", { data: { name: "Ramesh" } });
+    expect(result.status).toBe("already_saved");
+    expect(prismaMock.pendingAction.create).not.toHaveBeenCalled();
+  });
+
+  it("treats differing payloads as new proposals", async () => {
+    prismaMock.pendingAction.findMany.mockResolvedValue([
+      pendingRow({ payload: { data: { name: "Ramesh" } } }),
+    ]);
+    prismaMock.pendingAction.create.mockResolvedValue(pendingRow());
+    const result = await proposeAction(auth, "patient.create", { data: { name: "Different" } });
+    expect(result.status).toBe("created");
     expect(prismaMock.pendingAction.create).toHaveBeenCalledOnce();
   });
 });

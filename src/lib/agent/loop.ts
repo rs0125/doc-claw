@@ -11,6 +11,17 @@ import {
 const MAX_TOOL_ROUNDS = 8;
 const HISTORY_MESSAGES = 20;
 
+// Pure reads — safe to serve from a per-turn cache on identical args. Excludes
+// the PDF tools (they render/upload and audit) and all propose/confirm/cancel.
+const READ_ONLY_TOOLS = new Set([
+  "search_patients",
+  "get_patient",
+  "list_encounters",
+  "list_prescriptions",
+  "list_discharge_summaries",
+  "get_discharge_summary",
+]);
+
 let openai: OpenAI | undefined;
 function client(): OpenAI {
   openai ??= new OpenAI(); // reads OPENAI_API_KEY
@@ -39,11 +50,12 @@ function systemPrompt(
     "- Medication details are safety-critical. Quote doses and frequencies verbatim; if anything is ambiguous (drug name, dose, patient identity), ask instead of guessing.",
     "- Optional fields may simply be omitted. Never fabricate values you were not given — in particular never derive a date of birth from an age; leave it out (an approximate age can go in notes) and proceed with the proposal, mentioning what was left blank.",
     "- Tool arguments must match their schemas: allergies, chronicConditions and medications are JSON arrays, dates are YYYY-MM-DD strings. If a tool reports validation issues, fix the arguments and retry.",
-    "- PATIENT SELECTION (do this before acting on any named patient's record): call search_patients — it returns fuzzy, typo-tolerant matches ranked best-first. Then:",
-    "    • Multiple matches, or any single match that is only a fuzzy/approximate hit (spelling differs from what the doctor typed): show them as a NUMBERED list with a distinguishing detail (phone/DOB) and ask the doctor to choose. Do not act until they pick.",
-    "    • Exactly one match that clearly corresponds to the name given: state which patient you are acting on (name + a detail) and proceed.",
+    "- REGISTERING A NEW PATIENT is different from selecting an existing one: when the doctor asks to add/register a new patient, immediately call propose_create_patient with the details they gave, OMITTING any optional fields they didn't mention (never ask for phone/DOB/blood group first). Then show exactly what will be saved and ask them to confirm. Do not run patient selection for a brand-new patient.",
+    "- PATIENT SELECTION applies when the doctor refers to an EXISTING patient (to read or change their record). Call search_patients — it returns fuzzy, typo-tolerant matches ranked best-first. Then:",
+    "    • Always show the match(es) as a NUMBERED list with a distinguishing detail (phone/DOB), and ask the doctor to confirm which patient they mean — EVEN IF there is only one match. Do not reveal the patient's records or propose any write until the doctor has confirmed the patient. (Example single match: 'I found 1 patient: 1. Ramesh Kumar (ph 98…). Is this the right patient?')",
     "    • No matches: say so and offer to register a new patient.",
-    "  Once the doctor has selected a patient, keep using that patient for the rest of the conversation without re-asking.",
+    "  Once the doctor has confirmed/picked a patient, keep using that patient for the rest of the conversation without re-asking.",
+    "- You may combine the patient confirmation with the next step to save a round-trip: e.g. 'I found 1. Ramesh Kumar (ph 98…). Shall I record this prescription for him: …?' — but nothing (read details or write) actually happens until the doctor confirms the patient.",
     "- This applies to bulk requests too: if the doctor asks to register or change several things, call propose_* for EACH of them immediately in the same turn, then present all proposals together for one confirmation. Do not first ask for optional extra details.",
     "- If a message contains several requests (e.g. a write plus a question), address ALL of them in the same reply.",
     "- If more than one proposal is pending, a bare 'yes' is ambiguous: confirm only the proposal from your immediately preceding message if that is unmistakable, otherwise ask which one. Confirm multiple pending actions only when the doctor explicitly confirms all of them (e.g. 'confirm all').",
@@ -55,6 +67,16 @@ function systemPrompt(
       ? `\nPending unconfirmed actions: ${pending.map((p) => `${p.id} (${p.type})`).join(", ")}. If the doctor's message confirms one of these, call confirm_action with its id; if they reject it, cancel_action.`
       : "",
   ].join("\n");
+}
+
+// Short, standalone approvals that should execute a lone pending proposal.
+// Kept deliberately tight (whole-message match, includes common Hinglish) so it
+// never fires on messages that merely contain "yes" inside a larger request.
+const AFFIRMATIONS =
+  /^(y|ya|yes|yep|yeah|yup|ok|okay|k|sure|confirm(ed|\sit)?|go ahead|do it|save( it)?|proceed|please do|yes please|haan|haan ji|ha|theek hai|thik hai|kar do|save karo)[.! ]*$/i;
+
+function isAffirmation(text: string): boolean {
+  return AFFIRMATIONS.test(text.trim());
 }
 
 /**
@@ -111,12 +133,31 @@ export async function runAgentTurn(doctor: Doctor, userMessageAt: Date): Promise
   let reply = "Sorry, I could not process that. Please try again.";
   const toolCtx = { auth, userMessageAt, confirmsThisTurn: 0, confirmAllAsserted: false };
 
+  // Reliability guarantee: gpt-4o intermittently replies "confirmed" without
+  // actually calling confirm_action. When the doctor sends a clear, standalone
+  // affirmation and exactly one proposal is pending, force the confirm tool call
+  // so a "yes"/"confirm" always executes. Ambiguous cases (0 or >1 pending) fall
+  // through to normal model handling.
+  const currentUserText = history.find((m) => m.role === "user")?.content ?? "";
+  const forceConfirm = pending.length === 1 && isAffirmation(currentUserText);
+
+  // Within a single turn the model sometimes repeats an identical read (e.g.
+  // searching the same name twice); cache read-only results so we don't re-hit
+  // the DB or write duplicate read-audit rows. Never cache writes/confirms.
+  const readCache = new Map<string, string>();
+
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    // Force confirm_action only on the first round of a forced-confirm turn.
+    const toolChoice =
+      forceConfirm && round === 0
+        ? ({ type: "function", function: { name: "confirm_action" } } as const)
+        : undefined;
     const completion = await client().chat.completions.create({
       model: process.env.OPENAI_MODEL ?? "gpt-4o",
       temperature: 0.2, // instruction-following over creativity; this is a records clerk
       messages,
       tools: agentTools,
+      ...(toolChoice ? { tool_choice: toolChoice } : {}),
     });
 
     const choice = completion.choices[0].message;
@@ -135,7 +176,17 @@ export async function runAgentTurn(doctor: Doctor, userMessageAt: Date): Promise
       } catch {
         // leave args empty; the executor will report the problem
       }
-      const result = await executeTool(toolCtx, call.function.name, args);
+
+      const cacheable = READ_ONLY_TOOLS.has(call.function.name);
+      const cacheKey = `${call.function.name}:${call.function.arguments}`;
+      let result: string;
+      if (cacheable && readCache.has(cacheKey)) {
+        result = readCache.get(cacheKey)!;
+      } else {
+        result = await executeTool(toolCtx, call.function.name, args);
+        if (cacheable) readCache.set(cacheKey, result);
+      }
+
       if (process.env.AGENT_DEBUG) {
         console.error(`[tool] ${call.function.name} ${call.function.arguments}\n[result] ${result.slice(0, 400)}`);
       }
