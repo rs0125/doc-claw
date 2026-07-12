@@ -187,6 +187,8 @@ export type ToolContext = {
   confirmsThisTurn: number;
   /** Set once the model asserts the doctor confirmed ALL pending proposals. */
   confirmAllAsserted: boolean;
+  /** Whether the doctor's message actually authorizes confirming ALL (contains "all"/"both"/…). */
+  confirmAllAllowed: boolean;
 };
 
 export async function executeTool(
@@ -272,7 +274,9 @@ async function run(ctx: ToolContext, name: string, args: Record<string, unknown>
       return propose(auth, "summary.finalize", { summaryId: args.summaryId });
 
     case "confirm_action": {
-      if (args.confirmAll === true) ctx.confirmAllAsserted = true;
+      // Only honor confirmAll if the doctor's actual words authorize it; the
+      // model must not turn a bare "yes" into a confirm-everything.
+      if (args.confirmAll === true && ctx.confirmAllAllowed) ctx.confirmAllAsserted = true;
       if (ctx.confirmsThisTurn >= 1 && !ctx.confirmAllAsserted) {
         return {
           error:

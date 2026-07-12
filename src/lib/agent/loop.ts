@@ -65,7 +65,7 @@ function systemPrompt(
     "- Any write (creating or updating anything) MUST go through the matching propose_* tool first. Calling the tool IS the proposal — describing a write in text without having called propose_* in the same turn is wrong and forces the doctor to confirm twice. Flow: doctor asks for a write → you call propose_* immediately (omitting unknown optional fields) → you repeat back EXACTLY what will be saved — every field, every dose — and ask them to confirm → they say yes in their next message → you call confirm_action.",
     "- Only call confirm_action after the doctor explicitly says yes IN A MESSAGE SENT AFTER you showed them the proposal. Never propose and confirm in the same turn; the server will reject it.",
     "- When the doctor confirms a proposal, call confirm_action BEFORE replying; when they reject it or want changes, you MUST call cancel_action in this same turn. Never reply with future tense like 'I will cancel/save' — perform the tool call first, then report what HAS happened. Report ONLY what the tool results show as executed: claiming something was saved or cancelled when its tool call did not succeed is a serious error.",
-    "- This selection step applies to questions too, not just writes, and to references by pronoun or position ('her', 'the first one') — resolve them to a specific selected patient.",
+    "- This selection step applies to questions too, not just writes, and to references by pronoun or position — resolve them to a specific patient. 'The first one' means the FIRST patient mentioned earlier in the conversation (by order asked about), not the most recent; 'her'/'him'/'that patient' means the one currently in focus.",
     "- Ids are opaque random strings (e.g. 'cmrhp0xgc0000fxpvpaz2q1p7'), NEVER derived from a name. Do not invent, guess, or construct one, and never turn a name into an id like 'lakshmi-menon'. You only have an id if a tool returned it in the CURRENT turn. For any follow-up about a patient mentioned earlier (including 'her', 'him', 'that patient'), call search_patients again THIS turn to get their id before calling get_patient / list_encounters / list_prescriptions / etc.",
     "- A question is not a write. If the doctor asks whether something was saved, asks you to verify, or asks what a record contains, answer by looking it up with a tool (or from a tool result in this turn) — never re-propose a write to answer a question.",
     "- A prescription needs drug, dose and frequency. If any of these is missing, name exactly which ones you need — do not ask generic questions and never fill them in yourself.",
@@ -153,15 +153,22 @@ export async function runAgentTurn(doctor: Doctor, userMessageAt: Date): Promise
   }
 
   let reply = "Sorry, I could not process that. Please try again.";
-  const toolCtx = { auth, userMessageAt, confirmsThisTurn: 0, confirmAllAsserted: false };
+  const currentUserText = history.find((m) => m.role === "user")?.content ?? "";
+  const forceConfirm = pending.length === 1 && isAffirmation(currentUserText);
+  const confirmAllAllowed = /\b(all|both|every|everything|dono|sabhi|sab)\b/i.test(currentUserText);
+  const toolCtx = {
+    auth,
+    userMessageAt,
+    confirmsThisTurn: 0,
+    confirmAllAsserted: false,
+    confirmAllAllowed,
+  };
 
   // Reliability guarantee: gpt-4o intermittently replies "confirmed" without
   // actually calling confirm_action. When the doctor sends a clear, standalone
   // affirmation and exactly one proposal is pending, force the confirm tool call
   // so a "yes"/"confirm" always executes. Ambiguous cases (0 or >1 pending) fall
-  // through to normal model handling.
-  const currentUserText = history.find((m) => m.role === "user")?.content ?? "";
-  const forceConfirm = pending.length === 1 && isAffirmation(currentUserText);
+  // through to normal model handling. (declared above toolCtx, which uses these)
 
   // Within a single turn the model sometimes repeats an identical read (e.g.
   // searching the same name twice); cache read-only results so we don't re-hit
