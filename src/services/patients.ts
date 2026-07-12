@@ -149,23 +149,6 @@ export async function updatePatient(
   });
 }
 
-/** Soft-delete: hides the patient (and their records) from lists, reversibly. */
-export async function archivePatient(auth: AuthContext, patientId: string, via?: string) {
-  await assertOwnedPatient(auth, patientId);
-  return prisma.$transaction(async (tx) => {
-    const updated = await tx.patient.update({
-      where: { id: patientId },
-      data: { archivedAt: new Date() },
-    });
-    await audit(
-      auth,
-      { action: "patient.archive", resourceType: "Patient", resourceId: patientId, details: via ? { via } : undefined },
-      tx,
-    );
-    return updated;
-  });
-}
-
 /**
  * Permanent erasure (DPDP): removes the patient and everything cascading from
  * them, including R2 attachment objects. Irreversible.

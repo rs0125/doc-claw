@@ -13,7 +13,6 @@ import {
 } from "@/lib/validation";
 import { archiveEncounter, createEncounter, updateEncounter } from "@/services/encounters";
 import {
-  archivePatient,
   createPatient,
   deletePatient,
   findDuplicatePatient,
@@ -94,13 +93,6 @@ export async function createPatientAction(
   }
   revalidatePath("/dashboard");
   redirect(`/dashboard/patients/${id}`);
-}
-
-export async function archivePatientAction(patientId: string) {
-  const a = await auth();
-  await archivePatient(a, patientId, VIA);
-  revalidatePath("/dashboard");
-  redirect("/dashboard");
 }
 
 export async function deletePatientAction(patientId: string) {

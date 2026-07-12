@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, FileText, Pill, Stethoscope, Download, Plus, Pencil, Trash2, Lock, Archive } from "lucide-react";
+import { ArrowLeft, FileText, Pill, Stethoscope, Download, Plus, Pencil, Trash2, Lock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,6 @@ import { listSummaries } from "@/services/summaries";
 import { listAttachments } from "@/services/attachments";
 import {
   finalizeSummaryAction,
-  archivePatientAction,
   deletePatientAction,
   archiveEncounterAction,
   archivePrescriptionAction,
@@ -294,33 +293,20 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
         ))}
       </Section>
 
-      {/* Danger zone — archive (reversible) and permanent erasure */}
+      {/* Danger zone — permanent erasure */}
       <section className="mt-2 flex flex-col gap-2">
         <h2 className="px-1 text-sm font-semibold text-muted-foreground">Manage patient</h2>
         <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">
-            Archive hides this patient from your list (reversible). Delete permanently erases the
-            patient and all their records — used for data-erasure requests.
+            Permanently erase this patient and all their records — used for data-erasure requests.
+            This cannot be undone.
           </p>
-          <div className="flex shrink-0 gap-2">
-            <ConfirmButton
-              action={archivePatientAction.bind(null, id)}
-              trigger={
-                <span className="inline-flex items-center gap-1">
-                  <Archive className="size-4" /> Archive
-                </span>
-              }
-              triggerVariant="outline"
-              title="Archive this patient?"
-              message="They'll be hidden from your patient list. Their records are kept and this can be reversed."
-              confirmLabel="Archive"
-              confirmVariant="default"
-            />
+          <div className="shrink-0">
             <ConfirmButton
               action={deletePatientAction.bind(null, id)}
               trigger={
                 <span className="inline-flex items-center gap-1">
-                  <Trash2 className="size-4" /> Delete
+                  <Trash2 className="size-4" /> Delete patient
                 </span>
               }
               triggerVariant="destructive"
