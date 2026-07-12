@@ -146,7 +146,7 @@ const scenarios: Scenario[] = [
           }
           const j = await judge(
             reply,
-            "Proposes creating the patient, repeats the details back (name, sex, phone, allergy), and asks for confirmation before saving.",
+            "Proposes creating patient Anita Sharma, reflects the details given (female, ~34, phone, penicillin allergy — capturing the age is expected and good), and asks the doctor to confirm before saving. Minor rephrasing/pluralization of the details is fine.",
           );
           if (j) failures.push(j);
           return failures;
@@ -162,6 +162,10 @@ const scenarios: Scenario[] = [
           if (!patient) return ["patient not created after confirmation"];
           if (patient.sex !== "FEMALE") failures.push(`sex is ${patient.sex}, expected FEMALE`);
           if (!patient.phone?.includes("9822111223")) failures.push("phone not saved");
+          // age 34 → approximate DOB should be recorded (the new behaviour)
+          if (!patient.dateOfBirth || !patient.dobApproximate) {
+            failures.push("age not captured as an approximate DOB");
+          }
           if (!patient.allergies.some((a) => /peni?cill?in/i.test(a))) {
             failures.push(`allergy not captured: ${JSON.stringify(patient.allergies)}`);
           }
