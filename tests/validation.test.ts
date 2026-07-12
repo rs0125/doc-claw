@@ -27,6 +27,17 @@ describe("patientCreateSchema", () => {
     expect(() => patientCreateSchema.parse({ name: "X", dateOfBirth: "14 March 1961" })).toThrow();
   });
 
+  it("strips zero-width and bidi-control characters from names", () => {
+    const parsed = patientCreateSchema.parse({ name: "Ra​mesh‮ Ku‍mar﻿" });
+    expect(parsed.name).toBe("Ramesh Kumar");
+    // a name that is ONLY invisible characters must not survive as empty
+    expect(() => patientCreateSchema.parse({ name: "​‌﻿" })).toThrow();
+  });
+
+  it("collapses runs of whitespace in names", () => {
+    expect(patientCreateSchema.parse({ name: "  Sita   Devi \n" }).name).toBe("Sita Devi");
+  });
+
   it("rejects well-formed but impossible calendar dates", () => {
     expect(() => patientCreateSchema.parse({ name: "X", dateOfBirth: "1990-02-31" })).toThrow();
     expect(() => patientCreateSchema.parse({ name: "X", dateOfBirth: "2026-13-01" })).toThrow();

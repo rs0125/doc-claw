@@ -1,7 +1,20 @@
 import { z } from "zod";
 
+// Zero-width characters, bidi overrides and control chars enable name spoofing
+// ("Ramesh" vs "Ra​mesh" as two visually identical patients) — strip them from
+// identity-critical fields before storage.
+const INVISIBLE_CHARS =
+  // eslint-disable-next-line no-control-regex
+  /[\u0000-\u0008\u000B-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g;
+
+const sanitizedName = (max: number) =>
+  z
+    .string()
+    .transform((s) => s.replace(INVISIBLE_CHARS, "").replace(/\s+/g, " ").trim())
+    .pipe(z.string().min(1).max(max));
+
 export const medicationSchema = z.object({
-  name: z.string().min(1),
+  name: sanitizedName(200),
   dose: z.string().min(1), // "500 mg" — free text on purpose; agent echoes back before saving
   frequency: z.string().min(1), // "1-0-1", "twice daily"
   duration: z.string().optional(), // "5 days"
@@ -22,7 +35,7 @@ const isoDate = z
   .transform((s) => new Date(`${s}T00:00:00.000Z`));
 
 export const patientCreateSchema = z.object({
-  name: z.string().min(1).max(200),
+  name: sanitizedName(200),
   dateOfBirth: isoDate.optional(),
   sex: z.enum(["MALE", "FEMALE", "OTHER", "UNKNOWN"]).optional(),
   phone: z.string().max(20).optional(),

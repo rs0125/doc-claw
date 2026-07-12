@@ -14,8 +14,12 @@ import { createPatient, updatePatient } from "@/services/patients";
 import { createPrescription } from "@/services/prescriptions";
 import { createSummary, updateSummary } from "@/services/summaries";
 
-const EXPIRY_MINUTES = 15;
 const VIA = "telegram-agent";
+
+function ttlMinutes(): number {
+  const v = Number(process.env.PENDING_ACTION_TTL_MINUTES);
+  return Number.isFinite(v) && v > 0 ? v : 15;
+}
 
 // Payload validators double as executors' input contract. Payloads are stored
 // as the raw JSON the agent proposed and re-validated at execution time.
@@ -46,7 +50,7 @@ export async function proposeAction(
       doctorId: auth.doctor.id,
       type,
       payload: payload as object,
-      expiresAt: new Date(Date.now() + EXPIRY_MINUTES * 60_000),
+      expiresAt: new Date(Date.now() + ttlMinutes() * 60_000),
     },
   });
 }
@@ -54,6 +58,25 @@ export async function proposeAction(
 export async function listPendingActions(auth: AuthContext) {
   return prisma.pendingAction.findMany({
     where: { doctorId: auth.doctor.id, status: "PENDING", expiresAt: { gt: new Date() } },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/**
+ * Proposals that lapsed unconfirmed in the recent past. They are excluded from
+ * listPendingActions (so they can't be confirmed), but the agent still needs to
+ * know they existed so it can tell the doctor a change expired rather than
+ * silently re-proposing.
+ */
+export async function listRecentlyExpiredActions(auth: AuthContext, sinceMinutes = 30) {
+  const now = new Date();
+  return prisma.pendingAction.findMany({
+    where: {
+      doctorId: auth.doctor.id,
+      status: { in: ["PENDING", "EXPIRED"] },
+      expiresAt: { lte: now, gt: new Date(now.getTime() - sinceMinutes * 60_000) },
+      resolvedAt: null,
+    },
     orderBy: { createdAt: "asc" },
   });
 }
