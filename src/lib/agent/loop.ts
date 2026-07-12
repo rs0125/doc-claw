@@ -10,6 +10,10 @@ import {
 
 const MAX_TOOL_ROUNDS = 8;
 const HISTORY_MESSAGES = 20;
+// Defensive cap on any single message fed to the model. Telegram already limits
+// messages to 4096 chars; this bounds context for other entry points and
+// pathological input so one huge message can't bloat the prompt.
+const MAX_MESSAGE_CHARS = 4096;
 
 // Pure reads — safe to serve from a per-turn cache on identical args. Excludes
 // the PDF tools (they render/upload and audit) and all propose/confirm/cancel.
@@ -24,13 +28,18 @@ const READ_ONLY_TOOLS = new Set([
 
 let openai: OpenAI | undefined;
 function client(): OpenAI {
-  // maxRetries covers 429/5xx/connection errors with the SDK's own backoff;
-  // timeout bounds a hung request so a turn fails fast rather than hanging.
-  openai ??= new OpenAI({ maxRetries: 5, timeout: 60_000 });
+  // Retries are handled in createCompletion with a bounded total budget, so the
+  // SDK's own retries are disabled to avoid multiplicative stacking (which could
+  // hang a turn for minutes on sustained connectivity issues).
+  openai ??= new OpenAI({ maxRetries: 0, timeout: 30_000 });
   return openai;
 }
 
-/** Chat completion with a small extra backoff layer over the SDK's retries. */
+/**
+ * Chat completion with bounded retries: up to 3 attempts, 30s timeout each,
+ * short backoff — worst case well under the serverless function budget so a
+ * connectivity blip fails fast instead of hanging the webhook worker.
+ */
 async function createCompletion(
   body: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
 ): Promise<OpenAI.Chat.Completions.ChatCompletion> {
@@ -127,7 +136,7 @@ export async function runAgentTurn(doctor: Doctor, userMessageAt: Date): Promise
     { role: "system", content: systemPrompt(doctor, pending, expired) },
     ...[...history].reverse().map((m) => ({
       role: m.role as "user" | "assistant",
-      content: m.content,
+      content: m.content.slice(0, MAX_MESSAGE_CHARS),
     })),
   ];
 
