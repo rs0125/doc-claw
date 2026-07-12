@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { Patient } from "@/generated/prisma/client";
 import type { AuthContext } from "@/lib/auth";
 import { audit, auditRead } from "@/lib/audit";
 import { ApiError } from "@/lib/http";
@@ -13,38 +14,68 @@ export async function assertOwnedPatient(auth: AuthContext, patientId: string) {
   const patient = await prisma.patient.findFirst({
     where: { id: patientId, doctorId: auth.doctor.id },
   });
-  if (!patient) throw new ApiError(404, "Patient not found");
+  if (!patient) {
+    throw new ApiError(
+      404,
+      "No patient with that id. Do not guess ids — call search_patients to get a valid one.",
+    );
+  }
   return patient;
 }
+
+// Trigram similarity floor. Names below this aren't considered matches; the
+// ILIKE substring branch still catches exact partials the score would miss.
+const FUZZY_THRESHOLD = 0.2;
 
 export async function searchPatients(
   auth: AuthContext,
   { q, limit, offset }: { q?: string; limit: number; offset: number },
 ) {
-  const where = {
-    doctorId: auth.doctor.id,
-    ...(q
-      ? {
-          OR: [
-            { name: { contains: q, mode: "insensitive" as const } },
-            { phone: { contains: q } },
-          ],
-        }
-      : {}),
-  };
+  // No query: most-recently-updated patients.
+  if (!q) {
+    const where = { doctorId: auth.doctor.id };
+    const [patients, total] = await Promise.all([
+      prisma.patient.findMany({ where, orderBy: { updatedAt: "desc" }, take: limit, skip: offset }),
+      prisma.patient.count({ where }),
+    ]);
+    auditRead(auth, {
+      action: "patient.search",
+      resourceType: "Patient",
+      details: { q: null, results: patients.length },
+    });
+    return { patients, total };
+  }
 
-  const [patients, total] = await Promise.all([
-    prisma.patient.findMany({ where, orderBy: { updatedAt: "desc" }, take: limit, skip: offset }),
-    prisma.patient.count({ where }),
-  ]);
+  // Fuzzy: trigram similarity on name, ILIKE fallback for substrings, plus
+  // phone substring. Ranked best-match first. Parameterized to prevent injection.
+  const like = `%${q}%`;
+  const rows = await prisma.$queryRaw<(Patient & { match_score: number })[]>`
+    SELECT *,
+           GREATEST(
+             similarity("name", ${q}),
+             CASE WHEN "name" ILIKE ${like} THEN 0.85 ELSE 0 END,
+             CASE WHEN "phone" IS NOT NULL AND "phone" LIKE ${like} THEN 0.85 ELSE 0 END
+           ) AS match_score
+    FROM "Patient"
+    WHERE "doctorId" = ${auth.doctor.id}
+      AND (
+        similarity("name", ${q}) > ${FUZZY_THRESHOLD}
+        OR "name" ILIKE ${like}
+        OR ("phone" IS NOT NULL AND "phone" LIKE ${like})
+      )
+    ORDER BY match_score DESC, "updatedAt" DESC
+    LIMIT ${limit} OFFSET ${offset}
+  `;
+
+  const patients = rows.map(({ match_score, ...p }) => p);
 
   auditRead(auth, {
     action: "patient.search",
     resourceType: "Patient",
-    details: { q: q ?? null, results: patients.length },
+    details: { q, results: patients.length, fuzzy: true },
   });
 
-  return { patients, total };
+  return { patients, total: patients.length };
 }
 
 export async function getPatient(auth: AuthContext, patientId: string) {
