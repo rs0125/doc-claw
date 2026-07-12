@@ -539,7 +539,10 @@ const scenarios: Scenario[] = [
       {
         user: "ramesh came in yesterday with a bad headache, diagnosed it as migraine, gave dietary advice. record the visit",
         check: async (reply) => {
-          const j = await judge(reply, "Proposes recording the visit and asks for confirmation.");
+          const j = await judge(
+            reply,
+            "Presents the visit details to be saved (including a concrete date) and seeks the doctor's go-ahead before saving. Nothing may be described as already saved.",
+          );
           return j ? [j] : [];
         },
       },

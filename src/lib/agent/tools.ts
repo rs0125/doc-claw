@@ -8,6 +8,7 @@ import { getPrescriptionDocumentUrl, listPrescriptions } from "@/services/prescr
 import {
   cancelAction,
   confirmAction,
+  listPendingActions,
   proposeAction,
   type PendingActionType,
 } from "@/services/pending-actions";
@@ -162,8 +163,15 @@ export const agentTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   ),
   tool(
     "confirm_action",
-    "Execute a previously proposed action. Call ONLY after the doctor has explicitly confirmed it in a message sent AFTER the proposal was shown to them.",
-    { actionId: { type: "string" } },
+    "Execute a previously proposed action. Call ONLY after the doctor has explicitly confirmed it in a message sent AFTER the proposal was shown to them. Only one action may be confirmed per doctor message — unless the doctor explicitly confirmed ALL pending proposals (e.g. 'confirm all'), in which case set confirmAll: true on every call.",
+    {
+      actionId: { type: "string" },
+      confirmAll: {
+        type: "boolean",
+        description:
+          "Set true ONLY when the doctor's exact words confirm ALL pending proposals ('confirm all', 'yes to all three'). NEVER set it for a bare 'yes'. This flag does NOT execute other actions — each action still needs its own confirm_action call.",
+      },
+    },
     ["actionId"],
   ),
   tool("cancel_action", "Cancel a proposed action the doctor rejected.", {
@@ -175,6 +183,10 @@ export type ToolContext = {
   auth: AuthContext;
   /** Timestamp of the doctor's current message — the confirm-gating anchor. */
   userMessageAt: Date;
+  /** Mutable per-turn counter enforcing one confirmation per doctor message. */
+  confirmsThisTurn: number;
+  /** Set once the model asserts the doctor confirmed ALL pending proposals. */
+  confirmAllAsserted: boolean;
 };
 
 export async function executeTool(
@@ -245,8 +257,26 @@ async function run(ctx: ToolContext, name: string, args: Record<string, unknown>
     case "propose_finalize_discharge_summary":
       return propose(auth, "summary.finalize", { summaryId: args.summaryId });
 
-    case "confirm_action":
-      return confirmAction(auth, args.actionId as string, ctx.userMessageAt);
+    case "confirm_action": {
+      if (args.confirmAll === true) ctx.confirmAllAsserted = true;
+      if (ctx.confirmsThisTurn >= 1 && !ctx.confirmAllAsserted) {
+        return {
+          error:
+            "One action was already confirmed for this message. A single 'yes' confirms one proposal only — ask the doctor about the remaining proposals, or set confirmAll: true if their message explicitly confirmed all of them.",
+        };
+      }
+      const result = await confirmAction(auth, args.actionId as string, ctx.userMessageAt);
+      ctx.confirmsThisTurn += 1;
+      const stillPending = await listPendingActions(auth);
+      return {
+        executed: result,
+        stillPendingActions: stillPending.map((a) => ({ actionId: a.id, type: a.type })),
+        note:
+          stillPending.length > 0
+            ? "ONLY the action above was executed. The listed actions are still pending and NOT saved — confirm each separately if (and only if) the doctor confirmed them, otherwise tell the doctor they remain unconfirmed."
+            : "This action was executed. No other proposals are pending.",
+      };
+    }
     case "cancel_action":
       return cancelAction(auth, args.actionId as string);
     default:
