@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Doctor {
+  id                 String   @id @default(cuid())
+  name               String
+  email              String   @unique
+  phone              String?
+  registrationNumber String? // state medical council registration no.
+  clinicName         String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tokens             ApiToken[]
+  patients           Patient[]
+  dischargeSummaries DischargeSummary[]
+  auditLogs          AuditLog[]
+}
+
+model ApiToken {
+  id         String    @id @default(cuid())
+  doctorId   String
+  name       String // e.g. "telegram-agent", "dev"
+  tokenHash  String    @unique // sha256 of the raw token; raw token is never stored
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  doctor    Doctor     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  auditLogs AuditLog[]
+
+  @@index([doctorId])
+}
+
+enum Sex {
+  MALE
+  FEMALE
+  OTHER
+  UNKNOWN
+}
+
+model Patient {
+  id                String    @id @default(cuid())
+  doctorId          String
+  name              String
+  dateOfBirth       DateTime? @db.Date
+  sex               Sex       @default(UNKNOWN)
+  phone             String?
+  abhaId            String? // ABDM health account id, optional
+  bloodGroup        String?
+  allergies         String[]  @default([])
+  chronicConditions String[]  @default([])
+  currentMedications Json? // [{ name, dose, frequency, duration? }]
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  doctor             Doctor             @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  dischargeSummaries DischargeSummary[]
+
+  @@index([doctorId, name])
+  @@index([doctorId, phone])
+}
+
+enum SummaryStatus {
+  DRAFT
+  FINAL
+}
+
+model DischargeSummary {
+  id                      String        @id @default(cuid())
+  doctorId                String
+  patientId               String
+  status                  SummaryStatus @default(DRAFT)
+  admissionDate           DateTime      @db.Date
+  dischargeDate           DateTime      @db.Date
+  diagnosis               String
+  presentingComplaint     String?
+  hospitalCourse          String
+  investigations          String?
+  treatmentGiven          String?
+  conditionAtDischarge    String?
+  medicationsAtDischarge  Json? // [{ name, dose, frequency, duration? }]
+  followUpInstructions    String?
+  documentKey             String? // R2 object key of the generated PDF
+  documentGeneratedAt     DateTime?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+  @@index([patientId])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  doctorId     String
+  tokenId      String?
+  action       String // e.g. "patient.create", "patient.read", "summary.document.download"
+  resourceType String // "Patient" | "DischargeSummary" | ...
+  resourceId   String?
+  details      Json?
+  createdAt    DateTime @default(now())
+
+  doctor Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  token  ApiToken? @relation(fields: [tokenId], references: [id], onDelete: SetNull)
+
+  @@index([doctorId, createdAt])
+  @@index([resourceType, resourceId])
+}

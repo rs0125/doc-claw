@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# doctor-openclaw
 
-## Getting Started
+API backend for a patient-management assistant for Indian doctors. Doctors interact
+through a chat agent (Telegram); this service is the system of record.
 
-First, run the development server:
+**Stack:** Next.js (App Router, API-only) on Vercel · Supabase Postgres via Prisma · Cloudflare R2 for documents.
+
+## Design notes
+
+- **All authorization lives here, not in the agent.** Every request needs
+  `Authorization: Bearer dct_...`; every query is scoped to the token's doctor.
+  Tokens are stored as sha256 hashes only.
+- **Every access is audited** — writes atomically (same transaction), reads best-effort.
+  See `GET /api/audit-logs`.
+- **Discharge summaries are generated from structured data** (never freehand LLM text),
+  rendered to PDF in R2, and served only via short-lived signed URLs.
+- Finalized summaries (`status: FINAL`) become immutable.
+
+## Setup
+
+1. Create a Supabase project (prefer an Indian region, e.g. `ap-south-1`) and an R2 bucket.
+2. `cp .env.example .env` and fill in values.
+3. `npx prisma migrate dev --name init`
+4. Provision a doctor + token:
+   `npm run create-doctor -- --name "Dr. A Sharma" --email a@example.com`
+5. `npm run dev`
+
+## API
+
+All routes require `Authorization: Bearer <token>`. Dates are `YYYY-MM-DD`.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/api/patients?q=&limit=&offset=` | Search own patients by name/phone |
+| POST | `/api/patients` | Create patient |
+| GET | `/api/patients/:id` | Patient details |
+| PATCH | `/api/patients/:id` | Update patient |
+| GET | `/api/patients/:id/discharge-summaries` | List summaries for a patient |
+| POST | `/api/patients/:id/discharge-summaries` | Create summary (DRAFT) |
+| GET | `/api/discharge-summaries/:id` | Summary details |
+| PATCH | `/api/discharge-summaries/:id` | Update / finalize (`{"status": "FINAL"}`) |
+| GET | `/api/discharge-summaries/:id/document` | Signed PDF URL (renders on demand) |
+| GET | `/api/audit-logs?limit=&offset=` | Own audit trail |
+
+Example:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+curl -s localhost:3000/api/patients \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"Ramesh Kumar","dateOfBirth":"1961-03-14","sex":"MALE","phone":"+919800000000","allergies":["penicillin"]}'
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Roadmap
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Telegram webhook + Claude agent loop (`/api/telegram/webhook`) with confirm-before-write flow
+- V2: per-doctor agent config (custom prompts/tools, external system adapters)
