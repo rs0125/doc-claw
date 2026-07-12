@@ -69,6 +69,7 @@ model Patient {
   chronicConditions String[]  @default([])
   currentMedications Json? // [{ name, dose, frequency, duration? }]
   notes             String?
+  archivedAt        DateTime? // soft-delete: hidden from lists, kept for audit
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -126,6 +127,7 @@ model Encounter {
   diagnosis   String?
   plan        String?
   notes       String?
+  archivedAt  DateTime? // soft-delete
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -148,6 +150,7 @@ model Prescription {
   followUpDate        DateTime? @db.Date
   documentKey         String? // R2 object key of the generated PDF
   documentGeneratedAt DateTime?
+  archivedAt          DateTime? // soft-delete
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
@@ -182,6 +185,7 @@ model DischargeSummary {
   followUpInstructions    String?
   documentKey             String? // R2 object key of the generated PDF
   documentGeneratedAt     DateTime?
+  archivedAt              DateTime? // soft-delete
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
 
@@ -311,4 +315,16 @@ model AuditLog {
 
   @@index([doctorId, createdAt])
   @@index([resourceType, resourceId])
+}
+
+// Fixed-window rate limiting, DB-backed so it works across serverless instances.
+// One row per (key, window-start); count increments within the window.
+model RateLimitHit {
+  id          String   @id @default(cuid())
+  bucket      String // e.g. "login:1.2.3.4" or "connect-code:<doctorId>"
+  windowStart DateTime
+  count       Int      @default(1)
+
+  @@unique([bucket, windowStart])
+  @@index([windowStart])
 }

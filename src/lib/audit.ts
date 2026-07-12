@@ -44,3 +44,12 @@ export async function audit(auth: AuthContext, entry: AuditEntry, db: Db = prism
 export function auditRead(auth: AuthContext, entry: AuditEntry) {
   deferred(() => audit(auth, entry).catch((err) => console.error("audit(read) failed", err)));
 }
+
+/** The doctor's own recent activity, newest first. */
+export function listAuditLogs(auth: AuthContext, limit = 100) {
+  return prisma.auditLog.findMany({
+    where: { doctorId: auth.doctor.id },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+}

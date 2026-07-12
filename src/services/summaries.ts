@@ -22,7 +22,7 @@ async function assertOwnedSummary(auth: AuthContext, summaryId: string) {
 export async function listSummaries(auth: AuthContext, patientId: string) {
   await assertOwnedPatient(auth, patientId);
   const summaries = await prisma.dischargeSummary.findMany({
-    where: { patientId, doctorId: auth.doctor.id },
+    where: { patientId, doctorId: auth.doctor.id, archivedAt: null },
     orderBy: { dischargeDate: "desc" },
   });
   auditRead(auth, {
@@ -94,6 +94,22 @@ export async function updateSummary(
         resourceId: summaryId,
         details: { changedFields: Object.keys(data), ...(via ? { via } : {}) },
       },
+      tx,
+    );
+    return updated;
+  });
+}
+
+export async function archiveSummary(auth: AuthContext, summaryId: string, via?: string) {
+  await assertOwnedSummary(auth, summaryId);
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.dischargeSummary.update({
+      where: { id: summaryId },
+      data: { archivedAt: new Date() },
+    });
+    await audit(
+      auth,
+      { action: "summary.archive", resourceType: "DischargeSummary", resourceId: summaryId, details: via ? { via } : undefined },
       tx,
     );
     return updated;

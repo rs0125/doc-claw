@@ -4,6 +4,7 @@ import type { AuthContext } from "@/lib/auth";
 import { audit, auditRead } from "@/lib/audit";
 import { ApiError } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { deleteObject } from "@/lib/r2";
 import type { patientCreateSchema, patientUpdateSchema } from "@/lib/validation";
 
 type PatientCreate = z.infer<typeof patientCreateSchema>;
@@ -33,7 +34,7 @@ export async function searchPatients(
 ) {
   // No query: most-recently-updated patients.
   if (!q) {
-    const where = { doctorId: auth.doctor.id };
+    const where = { doctorId: auth.doctor.id, archivedAt: null };
     const [patients, total] = await Promise.all([
       prisma.patient.findMany({ where, orderBy: { updatedAt: "desc" }, take: limit, skip: offset }),
       prisma.patient.count({ where }),
@@ -58,6 +59,7 @@ export async function searchPatients(
            ) AS match_score
     FROM "Patient"
     WHERE "doctorId" = ${auth.doctor.id}
+      AND "archivedAt" IS NULL
       AND (
         similarity("name", ${q}) > ${FUZZY_THRESHOLD}
         OR "name" ILIKE ${like}
@@ -83,6 +85,26 @@ export async function getPatient(auth: AuthContext, patientId: string) {
   const patient = await assertOwnedPatient(auth, patientId);
   auditRead(auth, { action: "patient.read", resourceType: "Patient", resourceId: patient.id });
   return patient;
+}
+
+/**
+ * Finds a likely-duplicate active patient before creating: same phone, or an
+ * exact (case-insensitive) name match. Used to warn the doctor, not to block.
+ */
+export async function findDuplicatePatient(
+  auth: AuthContext,
+  { name, phone }: { name?: string; phone?: string },
+) {
+  return prisma.patient.findFirst({
+    where: {
+      doctorId: auth.doctor.id,
+      archivedAt: null,
+      OR: [
+        ...(phone ? [{ phone }] : []),
+        ...(name ? [{ name: { equals: name, mode: "insensitive" as const } }] : []),
+      ],
+    },
+  });
 }
 
 export async function createPatient(auth: AuthContext, data: PatientCreate, via?: string) {
@@ -124,5 +146,46 @@ export async function updatePatient(
       tx,
     );
     return updated;
+  });
+}
+
+/** Soft-delete: hides the patient (and their records) from lists, reversibly. */
+export async function archivePatient(auth: AuthContext, patientId: string, via?: string) {
+  await assertOwnedPatient(auth, patientId);
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.patient.update({
+      where: { id: patientId },
+      data: { archivedAt: new Date() },
+    });
+    await audit(
+      auth,
+      { action: "patient.archive", resourceType: "Patient", resourceId: patientId, details: via ? { via } : undefined },
+      tx,
+    );
+    return updated;
+  });
+}
+
+/**
+ * Permanent erasure (DPDP): removes the patient and everything cascading from
+ * them, including R2 attachment objects. Irreversible.
+ */
+export async function deletePatient(auth: AuthContext, patientId: string, via?: string) {
+  await assertOwnedPatient(auth, patientId);
+  // Purge R2 objects first (DB cascade can't reach object storage).
+  const attachments = await prisma.attachment.findMany({
+    where: { patientId, doctorId: auth.doctor.id },
+    select: { r2Key: true },
+  });
+  await Promise.all(attachments.map((a) => deleteObject(a.r2Key).catch(() => {})));
+
+  await prisma.$transaction(async (tx) => {
+    // Audit BEFORE deleting (the row's FK is cascade-safe; audit keeps doctorId).
+    await audit(
+      auth,
+      { action: "patient.delete", resourceType: "Patient", resourceId: patientId, details: { erasure: true, ...(via ? { via } : {}) } },
+      tx,
+    );
+    await tx.patient.delete({ where: { id: patientId } });
   });
 }

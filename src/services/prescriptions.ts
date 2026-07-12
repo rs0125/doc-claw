@@ -13,7 +13,7 @@ type PrescriptionCreate = z.infer<typeof prescriptionCreateSchema>;
 export async function listPrescriptions(auth: AuthContext, patientId: string) {
   await assertOwnedPatient(auth, patientId);
   const prescriptions = await prisma.prescription.findMany({
-    where: { patientId, doctorId: auth.doctor.id },
+    where: { patientId, doctorId: auth.doctor.id, archivedAt: null },
     orderBy: { date: "desc" },
   });
   auditRead(auth, {
@@ -68,6 +68,58 @@ export async function createPrescription(
       tx,
     );
     return created;
+  });
+}
+
+export async function updatePrescription(
+  auth: AuthContext,
+  prescriptionId: string,
+  data: PrescriptionCreate,
+  via?: string,
+) {
+  const existing = await prisma.prescription.findFirst({
+    where: { id: prescriptionId, doctorId: auth.doctor.id },
+    select: { id: true },
+  });
+  if (!existing) throw new ApiError(404, "Prescription not found");
+
+  return prisma.$transaction(async (tx) => {
+    // Re-render on next download: clear the stale cached PDF stamp.
+    const updated = await tx.prescription.update({
+      where: { id: prescriptionId },
+      data: { ...data, documentGeneratedAt: null },
+    });
+    await audit(
+      auth,
+      {
+        action: "prescription.update",
+        resourceType: "Prescription",
+        resourceId: prescriptionId,
+        details: { ...(via ? { via } : {}) },
+      },
+      tx,
+    );
+    return updated;
+  });
+}
+
+export async function archivePrescription(auth: AuthContext, prescriptionId: string, via?: string) {
+  const existing = await prisma.prescription.findFirst({
+    where: { id: prescriptionId, doctorId: auth.doctor.id },
+    select: { id: true },
+  });
+  if (!existing) throw new ApiError(404, "Prescription not found");
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.prescription.update({
+      where: { id: prescriptionId },
+      data: { archivedAt: new Date() },
+    });
+    await audit(
+      auth,
+      { action: "prescription.archive", resourceType: "Prescription", resourceId: prescriptionId, details: via ? { via } : undefined },
+      tx,
+    );
+    return updated;
   });
 }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { redeemLoginToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/web-auth";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +55,12 @@ export async function GET(req: Request) {
 // POST consumes the token (single-use), sets the session cookie, and enters the app.
 export async function POST(req: Request) {
   const origin = new URL(req.url).origin;
+  // Throttle token-guessing on the consume endpoint.
+  try {
+    await rateLimit(`auth-callback:${clientIp(req)}`, { limit: 20, windowSec: 300 });
+  } catch {
+    return NextResponse.redirect(new URL("/login/error", origin), 303);
+  }
   const form = await req.formData();
   const token = String(form.get("t") ?? "");
   if (!token) return NextResponse.redirect(new URL("/login/error", origin), 303);

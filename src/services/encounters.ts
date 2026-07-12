@@ -12,7 +12,7 @@ type EncounterUpdate = z.infer<typeof encounterUpdateSchema>;
 export async function listEncounters(auth: AuthContext, patientId: string) {
   await assertOwnedPatient(auth, patientId);
   const encounters = await prisma.encounter.findMany({
-    where: { patientId, doctorId: auth.doctor.id },
+    where: { patientId, doctorId: auth.doctor.id, archivedAt: null },
     orderBy: { date: "desc" },
   });
   auditRead(auth, {
@@ -84,6 +84,26 @@ export async function updateEncounter(
         resourceId: encounterId,
         details: { changedFields: Object.keys(data), ...(via ? { via } : {}) },
       },
+      tx,
+    );
+    return updated;
+  });
+}
+
+export async function archiveEncounter(auth: AuthContext, encounterId: string, via?: string) {
+  const existing = await prisma.encounter.findFirst({
+    where: { id: encounterId, doctorId: auth.doctor.id },
+    select: { id: true },
+  });
+  if (!existing) throw new ApiError(404, "Encounter not found");
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.encounter.update({
+      where: { id: encounterId },
+      data: { archivedAt: new Date() },
+    });
+    await audit(
+      auth,
+      { action: "encounter.archive", resourceType: "Encounter", resourceId: encounterId, details: via ? { via } : undefined },
       tx,
     );
     return updated;
