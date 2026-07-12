@@ -1,3 +1,4 @@
+import { routeCommand } from "@/lib/agent/commands";
 import { runAgentTurn } from "@/lib/agent/loop";
 import { prisma } from "@/lib/prisma";
 import { sendMessage, type TelegramUpdate } from "@/lib/telegram";
@@ -49,8 +50,19 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
     return;
   }
 
+  // Slash commands are a shortcut layer: informational ones reply directly,
+  // capability ones ("/add …") turn into an instruction fed to the SAME agent,
+  // so confirm-before-write and patient selection still apply. Non-commands
+  // pass straight through as normal chat.
+  const routed = await routeCommand(link.doctor, text);
+  if (routed.kind === "reply") {
+    await sendMessage(chatId, routed.text);
+    return;
+  }
+  const agentInput = routed.kind === "agent" ? routed.instruction : text;
+
   const userMessage = await prisma.conversationMessage.create({
-    data: { doctorId: link.doctorId, role: "user", content: text },
+    data: { doctorId: link.doctorId, role: "user", content: agentInput },
   });
 
   try {

@@ -11,6 +11,7 @@
     "test": "vitest run",
     "create-doctor": "tsx scripts/create-doctor.ts",
     "telegram-link": "tsx scripts/telegram-link.ts",
+    "telegram-setup": "tsx scripts/telegram-setup.ts",
     "agent": "tsx scripts/agent-repl.ts",
     "eval": "tsx scripts/agent-eval.ts"
   },

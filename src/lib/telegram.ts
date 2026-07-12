@@ -32,6 +32,20 @@ export async function sendDocument(chatId: string, url: string, caption?: string
   await call("sendDocument", { chat_id: chatId, document: url, caption });
 }
 
+/** Registers the bot's slash-command menu (shown in Telegram's "/" picker). */
+export async function setMyCommands(commands: { command: string; description: string }[]) {
+  await call("setMyCommands", { commands });
+}
+
+/** Points Telegram at our webhook, gated by a secret token header. */
+export async function setWebhook(url: string, secretToken: string) {
+  await call("setWebhook", {
+    url,
+    secret_token: secretToken,
+    allowed_updates: ["message"],
+  });
+}
+
 // Minimal shape of the webhook payload we care about.
 export type TelegramUpdate = {
   update_id?: number;

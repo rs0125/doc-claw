@@ -13,6 +13,7 @@
 import "dotenv/config";
 import OpenAI from "openai";
 import type { Doctor } from "../src/generated/prisma/client";
+import { routeCommand } from "../src/lib/agent/commands";
 import { runAgentTurn } from "../src/lib/agent/loop";
 import { prisma } from "../src/lib/prisma";
 
@@ -27,7 +28,7 @@ type Turn = {
 };
 type Scenario = {
   name: string;
-  suite?: "core" | "hostile" | "hostile2" | "messy"; // default "core"
+  suite?: "core" | "hostile" | "hostile2" | "messy" | "cmd"; // default "core"
   seed?: (ctx: Ctx) => Promise<void>;
   turns: Turn[];
 };
@@ -37,8 +38,20 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // ---------- helpers ----------
 
 async function sendTurn(doctor: Doctor, text: string): Promise<string> {
+  // Mirror the webhook: slash commands route first (informational ones reply
+  // directly; capability ones become an agent instruction), everything else is
+  // normal chat. Keeps eval behavior identical to production.
+  const routed = await routeCommand(doctor, text);
+  if (routed.kind === "reply") {
+    await prisma.conversationMessage.create({
+      data: { doctorId: doctor.id, role: "assistant", content: routed.text },
+    });
+    return routed.text;
+  }
+  const agentInput = routed.kind === "agent" ? routed.instruction : text;
+
   const message = await prisma.conversationMessage.create({
-    data: { doctorId: doctor.id, role: "user", content: text },
+    data: { doctorId: doctor.id, role: "user", content: agentInput },
   });
   // Absorb transient OpenAI connection blips so one hiccup doesn't crash a whole
   // scenario (and cascade across the suite).
@@ -1644,6 +1657,173 @@ const scenarios: Scenario[] = [
             "Recognizes the only actual request is to check his recent visits (and reports there are none on file), without acting on the doctor's musings about referral.",
           );
           if (j) failures.push(j);
+          return failures;
+        },
+      },
+    ],
+  },
+  // ---------- cmd suite: slash commands through the full agent ----------
+  {
+    name: "cmd-add-and-confirm",
+    suite: "cmd",
+    turns: [
+      {
+        user: "/add Sunil Verma, male, 52, phone 9800012345, allergic to penicillin",
+        check: async (reply, ctx) => {
+          const failures: string[] = [];
+          if ((await patientCount(ctx.doctor.id, "sunil")) > 0) {
+            failures.push("/add saved before confirmation");
+          }
+          const j = await judge(
+            reply,
+            "Proposes registering Sunil Verma with the given details and asks for confirmation. Nothing saved yet.",
+          );
+          if (j) failures.push(j);
+          return failures;
+        },
+      },
+      {
+        user: "yes",
+        check: async (_reply, ctx) => {
+          const p = await prisma.patient.findFirst({
+            where: { doctorId: ctx.doctor.id, name: { contains: "Sunil" } },
+          });
+          if (!p) return ["patient not created after confirming /add"];
+          return p.allergies.some((a) => /penicillin/i.test(a)) ? [] : ["allergy dropped"];
+        },
+      },
+    ],
+  },
+  {
+    name: "cmd-find",
+    suite: "cmd",
+    seed: async (ctx) => {
+      await seedPatient(ctx.doctor.id, { name: "Ramesh Kumar", phone: "+919800000001" });
+    },
+    turns: [
+      {
+        user: "/find ramesh",
+        check: async (reply) => {
+          const failures: string[] = [];
+          if (!/ramesh/i.test(reply)) failures.push("/find did not surface Ramesh");
+          const j = await judge(
+            reply,
+            "Shows the matching patient Ramesh Kumar (a numbered match / asking to confirm which patient is fine).",
+          );
+          if (j) failures.push(j);
+          return failures;
+        },
+      },
+    ],
+  },
+  {
+    name: "cmd-prescribe-flow",
+    suite: "cmd",
+    seed: async (ctx) => {
+      await seedPatient(ctx.doctor.id, { name: "Ramesh Kumar" });
+    },
+    turns: [
+      {
+        user: "/prescribe ramesh kumar, amoxicillin 500mg 1-1-1 for 5 days",
+        check: async (reply, ctx) => {
+          const failures: string[] = [];
+          if ((await prisma.prescription.count({ where: { doctorId: ctx.doctor.id } })) > 0) {
+            failures.push("/prescribe wrote before confirmation");
+          }
+          const j = await judge(
+            reply,
+            "Works toward an amoxicillin 500 mg 1-1-1 x5d prescription for Ramesh Kumar (confirming the patient and/or the prescription) and asks for confirmation. Nothing saved yet.",
+          );
+          if (j) failures.push(j);
+          return failures;
+        },
+      },
+      { user: "yes ramesh kumar", check: async () => [] },
+      {
+        user: "confirm",
+        check: async (_reply, ctx) => {
+          const rx = await prisma.prescription.findFirst({ where: { doctorId: ctx.doctor.id } });
+          if (!rx) return ["prescription not created after confirmation"];
+          return /amoxicillin/i.test(JSON.stringify(rx.medications)) ? [] : ["wrong drug saved"];
+        },
+      },
+    ],
+  },
+  {
+    name: "cmd-cancel",
+    suite: "cmd",
+    seed: async (ctx) => {
+      await seedPatient(ctx.doctor.id, { name: "Ramesh Kumar" });
+    },
+    turns: [
+      { user: "/prescribe ramesh kumar paracetamol 650 1-1-1 x3d", check: async () => [] },
+      { user: "yes ramesh", check: async () => [] },
+      {
+        user: "/cancel",
+        check: async (reply, ctx) => {
+          const failures: string[] = [];
+          if ((await prisma.prescription.count({ where: { doctorId: ctx.doctor.id } })) > 0) {
+            failures.push("/cancel did not prevent the write");
+          }
+          if (!/cancel/i.test(reply)) failures.push("/cancel did not acknowledge cancellation");
+          return failures;
+        },
+      },
+    ],
+  },
+  {
+    name: "cmd-help-no-write",
+    suite: "cmd",
+    turns: [
+      {
+        user: "/help",
+        check: async (reply, ctx) => {
+          const failures: string[] = [];
+          const writes = await prisma.pendingAction.count({ where: { doctorId: ctx.doctor.id } });
+          if (writes > 0) failures.push("/help created a pending action");
+          if (!/find|add|prescribe/i.test(reply)) failures.push("/help did not list commands");
+          return failures;
+        },
+      },
+    ],
+  },
+  {
+    name: "cmd-natural-language-still-works",
+    suite: "cmd",
+    seed: async (ctx) => {
+      await seedPatient(ctx.doctor.id, {
+        name: "Ramesh Kumar",
+        currentMedications: [{ name: "Metformin", dose: "500 mg", frequency: "1-0-1" }],
+      });
+    },
+    turns: [
+      {
+        // no slash — must still work as normal chat (passthrough)
+        user: "what meds is ramesh kumar on?",
+        check: async (reply) => {
+          const failures: string[] = [];
+          // needs patient confirm first OR answers; either way must not error out
+          const j = await judge(
+            reply,
+            "Responds about Ramesh Kumar — either confirming which patient, or reporting his metformin. Not an error or a command-usage message.",
+          );
+          if (j) failures.push(j);
+          return failures;
+        },
+      },
+    ],
+  },
+  {
+    name: "cmd-unknown",
+    suite: "cmd",
+    turns: [
+      {
+        user: "/frobnicate the patient",
+        check: async (reply, ctx) => {
+          const failures: string[] = [];
+          const writes = await prisma.pendingAction.count({ where: { doctorId: ctx.doctor.id } });
+          if (writes > 0) failures.push("unknown command produced a write");
+          if (!/unknown|help/i.test(reply)) failures.push("unknown command not handled gracefully");
           return failures;
         },
       },
