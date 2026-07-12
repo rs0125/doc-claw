@@ -1,16 +1,12 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { DischargeSummary, Doctor, Patient, Prescription } from "@/generated/prisma/client";
+import { formatDate } from "@/lib/format";
 import type { Medication } from "@/lib/validation";
 
 const PAGE = { width: 595.28, height: 841.89 }; // A4
 const MARGIN = 50;
 const BODY_SIZE = 10;
 const LINE_HEIGHT = 14;
-
-function formatDate(d: Date | null): string {
-  if (!d) return "—";
-  return d.toISOString().slice(0, 10);
-}
 
 function formatMedications(meds: Medication[]): string {
   return meds

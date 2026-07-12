@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
-import { HelpPanel } from "@/components/help-panel";
 import { getSessionDoctor } from "@/lib/web-auth";
 import { logout } from "./actions";
 
@@ -21,7 +20,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <span className="text-xs text-muted-foreground">{doctor.name}</span>
         </Link>
         <div className="flex items-center gap-1">
-          <HelpPanel />
+          <Link href="/dashboard/help">
+            <Button variant="ghost" size="sm">
+              <HelpCircle />
+              <span className="hidden sm:inline">Help</span>
+            </Button>
+          </Link>
           <Tooltip label="Account & Telegram" side="bottom">
             <Link href="/dashboard/account">
               <Button variant="ghost" size="sm" aria-label="Account">

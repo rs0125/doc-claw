@@ -7,6 +7,7 @@ import { TelegramConnect } from "@/components/account/telegram-connect";
 import { TelegramRevoke } from "@/components/account/telegram-revoke";
 import { getSessionDoctor } from "@/lib/web-auth";
 import { prisma } from "@/lib/prisma";
+import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -71,9 +72,7 @@ export default async function AccountPage() {
                   A Telegram chat is connected and can manage your patients through the bot.
                 </p>
                 {link?.linkedAt && (
-                  <p className="text-xs">
-                    Connected on {link.linkedAt.toISOString().slice(0, 10)}.
-                  </p>
+                  <p className="text-xs">Connected on {formatDate(link.linkedAt)}.</p>
                 )}
               </div>
               <TelegramRevoke />

@@ -14,13 +14,10 @@ import { listPrescriptions } from "@/services/prescriptions";
 import { listSummaries } from "@/services/summaries";
 import { listAttachments } from "@/services/attachments";
 import { finalizeSummaryAction } from "@/app/dashboard/patient-actions";
+import { formatDate as fmtDate } from "@/lib/format";
 import type { Medication } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
-
-function fmtDate(d: Date | null): string {
-  return d ? d.toISOString().slice(0, 10) : "—";
-}
 
 function ageFrom(dob: Date | null): string | null {
   if (!dob) return null;
