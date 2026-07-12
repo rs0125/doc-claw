@@ -11,10 +11,10 @@ export function LoginForm() {
   const [state, action] = useActionState(passwordLoginAction, {});
   return (
     <form action={action} className="flex flex-col gap-4">
-      <Field label="Email" htmlFor="email">
+      <Field label="Email" htmlFor="email" required>
         <Input id="email" name="email" type="email" autoComplete="email" required />
       </Field>
-      <Field label="Password" htmlFor="password">
+      <Field label="Password" htmlFor="password" required>
         <Input
           id="password"
           name="password"

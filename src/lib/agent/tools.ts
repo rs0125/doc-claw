@@ -28,7 +28,11 @@ const medicationParam = {
 
 const patientFields = {
   name: { type: "string" },
-  dateOfBirth: { type: "string", description: "YYYY-MM-DD; omit if unknown" },
+  dateOfBirth: { type: "string", description: "YYYY-MM-DD; use only if the exact date is known" },
+  age: {
+    type: "integer",
+    description: "Patient's age in years; use this when only age is known (not the birth date)",
+  },
   sex: { type: "string", enum: ["MALE", "FEMALE", "OTHER", "UNKNOWN"] },
   phone: { type: "string" },
   abhaId: { type: "string" },

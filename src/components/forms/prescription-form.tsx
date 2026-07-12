@@ -15,10 +15,10 @@ export function PrescriptionForm({ action, today }: { action: Action; today: str
   const [state, formAction] = useActionState(action, {});
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <Field label="Date" htmlFor="date">
+      <Field label="Date" htmlFor="date" required>
         <Input id="date" name="date" type="date" defaultValue={today} required />
       </Field>
-      <MedicationFields />
+      <MedicationFields required />
       <Field label="Advice" htmlFor="advice">
         <Textarea id="advice" name="advice" placeholder="Rest, fluids…" />
       </Field>

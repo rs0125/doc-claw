@@ -19,10 +19,10 @@ import type { Medication } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
-function ageFrom(dob: Date | null): string | null {
+function ageFrom(dob: Date | null, approximate = false): string | null {
   if (!dob) return null;
   const years = Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 3600_000));
-  return `${years} yrs`;
+  return `${approximate ? "~" : ""}${years} yrs`;
 }
 
 function meds(v: unknown): Medication[] {
@@ -53,10 +53,13 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
   const summaryPhotos = attachments.filter((a) => a.kind === "DISCHARGE_SUMMARY");
 
   const facts: { label: string; value: string }[] = [
-    { label: "Age", value: ageFrom(patient.dateOfBirth) ?? "—" },
+    { label: "Age", value: ageFrom(patient.dateOfBirth, patient.dobApproximate) ?? "—" },
     { label: "Sex", value: patient.sex === "UNKNOWN" ? "—" : patient.sex.toLowerCase() },
     { label: "Blood group", value: patient.bloodGroup || "—" },
-    { label: "Date of birth", value: fmtDate(patient.dateOfBirth) },
+    {
+      label: "Date of birth",
+      value: patient.dobApproximate ? "Approx (from age)" : fmtDate(patient.dateOfBirth),
+    },
     { label: "Phone", value: patient.phone || "—" },
     { label: "ABHA ID", value: patient.abhaId || "—" },
   ];
@@ -77,7 +80,10 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
             <div>
               <CardTitle className="text-xl">{patient.name}</CardTitle>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                {[ageFrom(patient.dateOfBirth), patient.sex === "UNKNOWN" ? null : patient.sex.toLowerCase()]
+                {[
+                  ageFrom(patient.dateOfBirth, patient.dobApproximate),
+                  patient.sex === "UNKNOWN" ? null : patient.sex.toLowerCase(),
+                ]
                   .filter(Boolean)
                   .join(" · ") || "No demographics"}
               </p>

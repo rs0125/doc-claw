@@ -25,13 +25,18 @@ export function PatientForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <Field label="Name" htmlFor="name">
+      <Field label="Name" htmlFor="name" required>
         <Input id="name" name="name" defaultValue={patient?.name} required />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Date of birth" htmlFor="dateOfBirth">
+        <Field label="Date of birth" htmlFor="dateOfBirth" hint="Use if exact date is known">
           <Input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={dob} />
         </Field>
+        <Field label="Age" htmlFor="age" hint="Use if DOB unknown">
+          <Input id="age" name="age" type="number" min={0} max={120} placeholder="years" />
+        </Field>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
         <Field label="Sex" htmlFor="sex">
           <select
             id="sex"
@@ -45,18 +50,18 @@ export function PatientForm({
             <option value="OTHER">Other</option>
           </select>
         </Field>
+        <Field label="Blood group" htmlFor="bloodGroup">
+          <Input id="bloodGroup" name="bloodGroup" defaultValue={patient?.bloodGroup ?? ""} />
+        </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Phone" htmlFor="phone">
           <Input id="phone" name="phone" defaultValue={patient?.phone ?? ""} />
         </Field>
-        <Field label="Blood group" htmlFor="bloodGroup">
-          <Input id="bloodGroup" name="bloodGroup" defaultValue={patient?.bloodGroup ?? ""} />
+        <Field label="ABHA ID" htmlFor="abhaId">
+          <Input id="abhaId" name="abhaId" defaultValue={patient?.abhaId ?? ""} />
         </Field>
       </div>
-      <Field label="ABHA ID" htmlFor="abhaId">
-        <Input id="abhaId" name="abhaId" defaultValue={patient?.abhaId ?? ""} />
-      </Field>
       <Field label="Allergies" htmlFor="allergies" hint="Comma-separated">
         <Input
           id="allergies"

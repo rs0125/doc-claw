@@ -63,6 +63,25 @@ describe("patientCreateSchema", () => {
   });
 });
 
+describe("age folding", () => {
+  it("derives an approximate Jan-1 DOB from age when no DOB given", () => {
+    const p = patientCreateSchema.parse({ name: "X", age: 30 });
+    const year = new Date().getUTCFullYear() - 30;
+    expect(p.dateOfBirth?.toISOString()).toBe(`${year}-01-01T00:00:00.000Z`);
+    expect((p as { dobApproximate?: boolean }).dobApproximate).toBe(true);
+  });
+
+  it("prefers an explicit DOB over age and marks it not approximate", () => {
+    const p = patientCreateSchema.parse({ name: "X", dateOfBirth: "1990-05-20", age: 40 });
+    expect(p.dateOfBirth?.toISOString().slice(0, 10)).toBe("1990-05-20");
+    expect((p as { dobApproximate?: boolean }).dobApproximate).toBe(false);
+  });
+
+  it("rejects an out-of-range age", () => {
+    expect(() => patientCreateSchema.parse({ name: "X", age: 999 })).toThrow();
+  });
+});
+
 describe("patientUpdateSchema", () => {
   it("accepts partial updates and rejects invalid fields inside them", () => {
     expect(patientUpdateSchema.parse({ bloodGroup: "B+" })).toEqual({ bloodGroup: "B+" });

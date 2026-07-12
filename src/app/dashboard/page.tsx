@@ -10,10 +10,10 @@ import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-function ageFrom(dob: Date | null): string {
+function ageFrom(dob: Date | null, approximate = false): string {
   if (!dob) return "";
   const years = Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 3600_000));
-  return `${years}y`;
+  return `${approximate ? "~" : ""}${years}y`;
 }
 
 export default async function DashboardPage({
@@ -66,7 +66,8 @@ export default async function DashboardPage({
                 <div className="truncate font-medium">{p.name}</div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   <span>
-                    {p.sex !== "UNKNOWN" ? p.sex.toLowerCase() : ""} {ageFrom(p.dateOfBirth)}
+                    {p.sex !== "UNKNOWN" ? p.sex.toLowerCase() : ""}{" "}
+                    {ageFrom(p.dateOfBirth, p.dobApproximate)}
                   </span>
                   {p.phone && <span>{p.phone}</span>}
                   {p.chronicConditions.slice(0, 2).map((c) => (

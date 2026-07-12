@@ -33,9 +33,10 @@ const isoDate = z
   }, "Not a real calendar date")
   .transform((s) => new Date(`${s}T00:00:00.000Z`));
 
-export const patientCreateSchema = z.object({
+const patientBase = z.object({
   name: sanitizedName(200),
   dateOfBirth: isoDate.optional(),
+  age: z.coerce.number().int().min(0).max(120).optional(), // convenience: folds into an approximate DOB
   sex: z.enum(["MALE", "FEMALE", "OTHER", "UNKNOWN"]).optional(),
   phone: z.string().max(20).optional(),
   abhaId: z.string().max(20).optional(),
@@ -46,7 +47,22 @@ export const patientCreateSchema = z.object({
   notes: z.string().max(10_000).optional(),
 });
 
-export const patientUpdateSchema = patientCreateSchema.partial();
+// Folds an `age` into `dateOfBirth`: a known DOB always wins; otherwise an age
+// becomes Jan 1 of the birth year, flagged approximate so the UI stays honest.
+function foldAge<T extends { age?: number; dateOfBirth?: Date }>(
+  v: T,
+): Omit<T, "age"> & { dobApproximate?: boolean } {
+  const { age, ...rest } = v;
+  if (rest.dateOfBirth) return { ...rest, dobApproximate: false };
+  if (age != null) {
+    const year = new Date().getUTCFullYear() - age;
+    return { ...rest, dateOfBirth: new Date(Date.UTC(year, 0, 1)), dobApproximate: true };
+  }
+  return rest;
+}
+
+export const patientCreateSchema = patientBase.transform(foldAge);
+export const patientUpdateSchema = patientBase.partial().transform(foldAge);
 
 export const summaryCreateSchema = z.object({
   admissionDate: isoDate,

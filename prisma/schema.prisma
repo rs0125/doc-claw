@@ -60,6 +60,7 @@ model Patient {
   doctorId          String
   name              String
   dateOfBirth       DateTime? @db.Date
+  dobApproximate    Boolean   @default(false) // true when derived from an age, not a known DOB
   sex               Sex       @default(UNKNOWN)
   phone             String?
   abhaId            String? // ABDM health account id, optional

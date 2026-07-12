@@ -16,20 +16,20 @@ export function SummaryForm({ action, today }: { action: Action; today: string }
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Admission date" htmlFor="admissionDate">
+        <Field label="Admission date" htmlFor="admissionDate" required>
           <Input id="admissionDate" name="admissionDate" type="date" required />
         </Field>
-        <Field label="Discharge date" htmlFor="dischargeDate">
+        <Field label="Discharge date" htmlFor="dischargeDate" required>
           <Input id="dischargeDate" name="dischargeDate" type="date" defaultValue={today} required />
         </Field>
       </div>
-      <Field label="Diagnosis" htmlFor="diagnosis">
+      <Field label="Diagnosis" htmlFor="diagnosis" required>
         <Input id="diagnosis" name="diagnosis" required />
       </Field>
       <Field label="Presenting complaint" htmlFor="presentingComplaint">
         <Textarea id="presentingComplaint" name="presentingComplaint" />
       </Field>
-      <Field label="Hospital course" htmlFor="hospitalCourse">
+      <Field label="Hospital course" htmlFor="hospitalCourse" required>
         <Textarea id="hospitalCourse" name="hospitalCourse" required />
       </Field>
       <Field label="Investigations" htmlFor="investigations">

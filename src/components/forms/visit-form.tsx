@@ -14,10 +14,10 @@ export function VisitForm({ action, today }: { action: Action; today: string }) 
   const [state, formAction] = useActionState(action, {});
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <Field label="Date" htmlFor="date">
+      <Field label="Date" htmlFor="date" required>
         <Input id="date" name="date" type="date" defaultValue={today} required />
       </Field>
-      <Field label="Complaint" htmlFor="complaint">
+      <Field label="Complaint" htmlFor="complaint" required>
         <Textarea id="complaint" name="complaint" required placeholder="Fever and cough x2 days" />
       </Field>
       <Field label="Examination" htmlFor="examination">
