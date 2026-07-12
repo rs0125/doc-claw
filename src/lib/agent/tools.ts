@@ -276,8 +276,32 @@ async function run(ctx: ToolContext, name: string, args: Record<string, unknown>
     case "confirm_action": {
       // Only honor confirmAll if the doctor's actual words authorize it; the
       // model must not turn a bare "yes" into a confirm-everything.
-      if (args.confirmAll === true && ctx.confirmAllAllowed) ctx.confirmAllAsserted = true;
-      if (ctx.confirmsThisTurn >= 1 && !ctx.confirmAllAsserted) {
+      const confirmAll = args.confirmAll === true && ctx.confirmAllAllowed;
+
+      if (confirmAll) {
+        // Execute the named action AND every other pending one, in one shot, so
+        // "confirm all" is deterministic regardless of how many confirm_action
+        // calls the model makes.
+        const executed: unknown[] = [];
+        const seen = new Set<string>();
+        const primary = await confirmAction(auth, args.actionId as string, ctx.userMessageAt);
+        executed.push(primary);
+        seen.add(args.actionId as string);
+        for (const a of await listPendingActions(auth)) {
+          if (seen.has(a.id)) continue;
+          try {
+            executed.push(await confirmAction(auth, a.id, ctx.userMessageAt));
+            seen.add(a.id);
+          } catch {
+            // skip anything that can't be confirmed (expired/raced)
+          }
+        }
+        ctx.confirmsThisTurn += executed.length;
+        ctx.confirmAllAsserted = true;
+        return { executed, count: executed.length, note: `Confirmed and saved ${executed.length} pending action(s).` };
+      }
+
+      if (ctx.confirmsThisTurn >= 1) {
         return {
           error:
             "One action was already confirmed for this message. A single 'yes' confirms one proposal only — ask the doctor about the remaining proposals, or set confirmAll: true if their message explicitly confirmed all of them.",

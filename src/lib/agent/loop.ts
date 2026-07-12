@@ -71,6 +71,7 @@ function systemPrompt(
     "- A prescription needs drug, dose and frequency. If any of these is missing, name exactly which ones you need — do not ask generic questions and never fill them in yourself.",
     "- Medication details are safety-critical. Quote doses and frequencies verbatim; if anything is ambiguous (drug name, dose, patient identity), ask instead of guessing.",
     "- Optional fields may simply be omitted. Never fabricate values you were not given — in particular never derive a date of birth from an age; leave it out (an approximate age can go in notes) and proceed with the proposal, mentioning what was left blank.",
+    `- Sanity-check dates against today (${new Date().toISOString().slice(0, 10)}). If a visit, admission or discharge date is implausible — in the future, or many years in the past — point it out and ask the doctor to confirm or correct it before proposing.`,
     "- Tool arguments must match their schemas: allergies, chronicConditions and medications are JSON arrays, dates are YYYY-MM-DD strings. If a tool reports validation issues, fix the arguments and retry.",
     "- REGISTERING A NEW PATIENT is different from selecting an existing one: when the doctor asks to add/register a new patient, immediately call propose_create_patient with the details they gave, OMITTING any optional fields they didn't mention (never ask for phone/DOB/blood group first). Then show exactly what will be saved and ask them to confirm. Do not run patient selection for a brand-new patient.",
     "- PATIENT SELECTION applies when the doctor refers to an EXISTING patient (to read or change their record). Call search_patients — it returns fuzzy, typo-tolerant matches ranked best-first. Then:",
@@ -118,10 +119,13 @@ export async function runAgentTurn(doctor: Doctor, userMessageAt: Date): Promise
     listRecentlyExpiredActions(auth),
   ]);
 
+  // history is newest-first; the current user message is the newest one.
+  // Capture it BEFORE reordering for the prompt (reverse() would mutate history).
+  const currentUserText = history.find((m) => m.role === "user")?.content ?? "";
+
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: systemPrompt(doctor, pending, expired) },
-    // history is newest-first and already includes the current user message
-    ...history.reverse().map((m) => ({
+    ...[...history].reverse().map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
     })),
@@ -153,7 +157,6 @@ export async function runAgentTurn(doctor: Doctor, userMessageAt: Date): Promise
   }
 
   let reply = "Sorry, I could not process that. Please try again.";
-  const currentUserText = history.find((m) => m.role === "user")?.content ?? "";
   const forceConfirm = pending.length === 1 && isAffirmation(currentUserText);
   const confirmAllAllowed = /\b(all|both|every|everything|dono|sabhi|sab)\b/i.test(currentUserText);
   const toolCtx = {
