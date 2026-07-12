@@ -1,7 +1,9 @@
 "use client";
 
 import { useActionState } from "react";
+import type { Prescription } from "@/generated/prisma/client";
 import type { FormState } from "@/app/dashboard/patient-actions";
+import type { Medication } from "@/lib/validation";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/ui/field";
@@ -11,22 +13,38 @@ import { FormError } from "./form-error";
 
 type Action = (prev: FormState, fd: FormData) => Promise<FormState>;
 
-export function PrescriptionForm({ action, today }: { action: Action; today: string }) {
+export function PrescriptionForm({
+  action,
+  today,
+  prescription,
+  submitLabel = "Save prescription",
+}: {
+  action: Action;
+  today: string;
+  prescription?: Prescription;
+  submitLabel?: string;
+}) {
   const [state, formAction] = useActionState(action, {});
+  const dateVal = prescription ? prescription.date.toISOString().slice(0, 10) : today;
+  const followUp = prescription?.followUpDate
+    ? prescription.followUpDate.toISOString().slice(0, 10)
+    : "";
+  const meds = (prescription?.medications ?? undefined) as Medication[] | undefined;
+
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <Field label="Date" htmlFor="date" required>
-        <Input id="date" name="date" type="date" defaultValue={today} required />
+        <Input id="date" name="date" type="date" defaultValue={dateVal} required />
       </Field>
-      <MedicationFields required />
+      <MedicationFields required initial={meds} />
       <Field label="Advice" htmlFor="advice">
-        <Textarea id="advice" name="advice" placeholder="Rest, fluids…" />
+        <Textarea id="advice" name="advice" defaultValue={prescription?.advice ?? ""} placeholder="Rest, fluids…" />
       </Field>
       <Field label="Follow-up date" htmlFor="followUpDate">
-        <Input id="followUpDate" name="followUpDate" type="date" />
+        <Input id="followUpDate" name="followUpDate" type="date" defaultValue={followUp} />
       </Field>
       <FormError error={state.error} />
-      <SubmitButton>Save prescription</SubmitButton>
+      <SubmitButton>{submitLabel}</SubmitButton>
     </form>
   );
 }

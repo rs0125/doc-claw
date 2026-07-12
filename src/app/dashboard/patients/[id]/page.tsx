@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, FileText, Pill, Stethoscope, Download, Plus, Pencil } from "lucide-react";
+import { ArrowLeft, FileText, Pill, Stethoscope, Download, Plus, Pencil, Trash2, Lock, Archive } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { AttachmentStrip } from "@/components/attachment-strip";
+import { ConfirmButton } from "@/components/confirm-button";
 import { getSessionDoctor, webAuth } from "@/lib/web-auth";
 import { ApiError } from "@/lib/http";
 import { getPatient } from "@/services/patients";
@@ -13,7 +14,14 @@ import { listEncounters } from "@/services/encounters";
 import { listPrescriptions } from "@/services/prescriptions";
 import { listSummaries } from "@/services/summaries";
 import { listAttachments } from "@/services/attachments";
-import { finalizeSummaryAction } from "@/app/dashboard/patient-actions";
+import {
+  finalizeSummaryAction,
+  archivePatientAction,
+  deletePatientAction,
+  archiveEncounterAction,
+  archivePrescriptionAction,
+  archiveSummaryAction,
+} from "@/app/dashboard/patient-actions";
 import { formatDate as fmtDate } from "@/lib/format";
 import type { Medication } from "@/lib/validation";
 
@@ -144,14 +152,32 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
           <Card key={rx.id} className="p-4">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-medium">{fmtDate(rx.date)}</span>
-              <Tooltip label="Download prescription PDF">
-                <a
-                  href={`/dl/prescription/${rx.id}`}
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  <Download className="size-3.5" /> PDF
-                </a>
-              </Tooltip>
+              <div className="flex items-center gap-1">
+                <Tooltip label="Download prescription PDF">
+                  <a
+                    href={`/dl/prescription/${rx.id}`}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <Download className="size-3.5" /> PDF
+                  </a>
+                </Tooltip>
+                <Tooltip label="Edit prescription">
+                  <Link
+                    href={`/dashboard/patients/${id}/prescription/${rx.id}/edit`}
+                    className="inline-flex rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <Pencil className="size-3.5" />
+                  </Link>
+                </Tooltip>
+                <ConfirmButton
+                  action={archivePrescriptionAction.bind(null, id, rx.id)}
+                  trigger={<Trash2 className="size-3.5" />}
+                  triggerClassName="size-8 p-0 text-muted-foreground hover:text-destructive"
+                  title="Delete prescription?"
+                  message="This removes the prescription from the patient's record. It won't appear in lists or PDFs."
+                  confirmLabel="Delete prescription"
+                />
+              </div>
             </div>
             <ul className="flex flex-col gap-1 text-sm">
               {meds(rx.medications).map((m, i) => (
@@ -183,27 +209,49 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
             <p className="text-xs text-muted-foreground">
               {fmtDate(s.admissionDate)} → {fmtDate(s.dischargeDate)}
             </p>
-            <div className="mt-2 flex items-center gap-3">
+            <div className="mt-2 flex flex-wrap items-center gap-1">
               <Tooltip label="Download discharge summary PDF">
                 <a
                   href={`/dl/summary/${s.id}`}
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   <Download className="size-3.5" /> PDF
                 </a>
               </Tooltip>
               {s.status === "DRAFT" && (
-                <form action={finalizeSummaryAction.bind(null, s.id, id)}>
-                  <Tooltip label="Lock this summary — it can't be edited after">
-                    <button
-                      type="submit"
-                      className="text-xs font-medium text-primary hover:underline"
+                <>
+                  <Tooltip label="Edit draft">
+                    <Link
+                      href={`/dashboard/patients/${id}/summary/${s.id}/edit`}
+                      className="inline-flex rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                     >
-                      Finalize
-                    </button>
+                      <Pencil className="size-3.5" />
+                    </Link>
                   </Tooltip>
-                </form>
+                  <ConfirmButton
+                    action={finalizeSummaryAction.bind(null, s.id, id)}
+                    trigger={
+                      <span className="inline-flex items-center gap-1">
+                        <Lock className="size-3.5" /> Finalize
+                      </span>
+                    }
+                    triggerVariant="ghost"
+                    triggerClassName="h-8 text-primary"
+                    title="Finalize discharge summary?"
+                    message="Finalizing locks this summary permanently — it can no longer be edited. Continue?"
+                    confirmLabel="Finalize"
+                    confirmVariant="default"
+                  />
+                </>
               )}
+              <ConfirmButton
+                action={archiveSummaryAction.bind(null, id, s.id)}
+                trigger={<Trash2 className="size-3.5" />}
+                triggerClassName="size-8 p-0 text-muted-foreground hover:text-destructive"
+                title="Delete discharge summary?"
+                message="This removes the summary from the patient's record. It won't appear in lists."
+                confirmLabel="Delete summary"
+              />
             </div>
           </Card>
         ))}
@@ -218,15 +266,71 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
       >
         {encounters.map((e) => (
           <Card key={e.id} className="p-4">
-            <div className="mb-1 flex items-center justify-between">
+            <div className="mb-1 flex items-center justify-between gap-2">
               <span className="text-sm font-medium">{fmtDate(e.date)}</span>
-              {e.diagnosis && <Badge variant="secondary">{e.diagnosis}</Badge>}
+              <div className="flex items-center gap-1">
+                {e.diagnosis && <Badge variant="secondary">{e.diagnosis}</Badge>}
+                <Tooltip label="Edit visit">
+                  <Link
+                    href={`/dashboard/patients/${id}/visit/${e.id}/edit`}
+                    className="inline-flex rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <Pencil className="size-3.5" />
+                  </Link>
+                </Tooltip>
+                <ConfirmButton
+                  action={archiveEncounterAction.bind(null, id, e.id)}
+                  trigger={<Trash2 className="size-3.5" />}
+                  triggerClassName="size-8 p-0 text-muted-foreground hover:text-destructive"
+                  title="Delete visit?"
+                  message="This removes the visit from the patient's record. It won't appear in lists."
+                  confirmLabel="Delete visit"
+                />
+              </div>
             </div>
             <p className="text-sm">{e.complaint}</p>
             {e.plan && <p className="mt-1 text-xs text-muted-foreground">Plan: {e.plan}</p>}
           </Card>
         ))}
       </Section>
+
+      {/* Danger zone — archive (reversible) and permanent erasure */}
+      <section className="mt-2 flex flex-col gap-2">
+        <h2 className="px-1 text-sm font-semibold text-muted-foreground">Manage patient</h2>
+        <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            Archive hides this patient from your list (reversible). Delete permanently erases the
+            patient and all their records — used for data-erasure requests.
+          </p>
+          <div className="flex shrink-0 gap-2">
+            <ConfirmButton
+              action={archivePatientAction.bind(null, id)}
+              trigger={
+                <span className="inline-flex items-center gap-1">
+                  <Archive className="size-4" /> Archive
+                </span>
+              }
+              triggerVariant="outline"
+              title="Archive this patient?"
+              message="They'll be hidden from your patient list. Their records are kept and this can be reversed."
+              confirmLabel="Archive"
+              confirmVariant="default"
+            />
+            <ConfirmButton
+              action={deletePatientAction.bind(null, id)}
+              trigger={
+                <span className="inline-flex items-center gap-1">
+                  <Trash2 className="size-4" /> Delete
+                </span>
+              }
+              triggerVariant="destructive"
+              title={`Permanently delete ${patient.name}?`}
+              message="This erases the patient and ALL their visits, prescriptions, summaries and uploaded files, including from storage. This cannot be undone."
+              confirmLabel="Delete permanently"
+            />
+          </div>
+        </Card>
+      </section>
     </div>
   );
 }

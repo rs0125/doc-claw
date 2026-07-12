@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ChevronRight, Search, UserPlus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getSessionDoctor, webAuth } from "@/lib/web-auth";
 import { searchPatients } from "@/services/patients";
-import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 50;
 
 function ageFrom(dob: Date | null, approximate = false): string {
   if (!dob) return "";
@@ -19,17 +21,44 @@ function ageFrom(dob: Date | null, approximate = false): string {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; n?: string }>;
 }) {
   const doctor = await getSessionDoctor();
   if (!doctor) redirect("/login");
-  const { q } = await searchParams;
+  const { q, n } = await searchParams;
+  const query = q?.trim() || undefined;
+
+  // "Load more" grows the visible count via ?n=; capped for sanity.
+  const shown = Math.min(Math.max(parseInt(n ?? "", 10) || PAGE_SIZE, PAGE_SIZE), 1000);
 
   const { patients, total } = await searchPatients(webAuth(doctor), {
-    q: q?.trim() || undefined,
-    limit: 50,
+    q: query,
+    limit: shown,
     offset: 0,
   });
+  const hasMore = !query && total > patients.length;
+
+  // First-run empty state (no patients at all, not just an empty search).
+  if (!query && total === 0) {
+    return (
+      <div className="flex flex-col gap-4 pb-24">
+        <Card className="flex flex-col items-center gap-3 p-8 text-center">
+          <UserPlus className="size-8 text-muted-foreground" />
+          <div>
+            <p className="font-medium">No patients yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Add your first patient to get started, or message the Telegram bot.
+            </p>
+          </div>
+          <Link href="/dashboard/patients/new">
+            <Button>
+              <UserPlus /> Add your first patient
+            </Button>
+          </Link>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4 pb-24">
@@ -50,13 +79,13 @@ export default async function DashboardPage({
       </form>
 
       <p className="px-1 text-xs text-muted-foreground">
-        {q ? `${total} result${total === 1 ? "" : "s"} for "${q}"` : `${total} patients`}
+        {query ? `${total} result${total === 1 ? "" : "s"} for "${query}"` : `${total} patients`}
       </p>
 
       <div className="flex flex-col gap-2">
         {patients.length === 0 && (
           <Card className="p-6 text-center text-sm text-muted-foreground">
-            No patients found{q ? ` for "${q}"` : ""}.
+            No patients found{query ? ` for "${query}"` : ""}.
           </Card>
         )}
         {patients.map((p) => (
@@ -82,6 +111,12 @@ export default async function DashboardPage({
           </Link>
         ))}
       </div>
+
+      {hasMore && (
+        <Link href={`/dashboard?n=${shown + PAGE_SIZE}`} className="mx-auto">
+          <Button variant="outline">Load more ({total - patients.length} more)</Button>
+        </Link>
+      )}
 
       {/* Floating action button — anchored to the content column, thumb-reachable. */}
       <div className="pointer-events-none fixed inset-x-0 bottom-5 z-20">

@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Circle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, ListChecks, LogOut } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { TelegramConnect } from "@/components/account/telegram-connect";
 import { TelegramRevoke } from "@/components/account/telegram-revoke";
+import { ChangePassword } from "@/components/account/change-password";
 import { getSessionDoctor } from "@/lib/web-auth";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/format";
+import { signOutAllAction } from "@/app/dashboard/account-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +89,36 @@ export default async function AccountPage() {
               <TelegramConnect />
             </>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Password</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChangePassword />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Security</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 text-sm">
+          <Link href="/dashboard/activity">
+            <Button variant="outline" className="w-full justify-start">
+              <ListChecks /> View activity log
+            </Button>
+          </Link>
+          <form action={signOutAllAction}>
+            <Button variant="outline" type="submit" className="w-full justify-start">
+              <LogOut /> Sign out of all devices
+            </Button>
+          </form>
+          <p className="text-xs text-muted-foreground">
+            Signs out every browser session (use if a device was lost).
+          </p>
         </CardContent>
       </Card>
     </div>

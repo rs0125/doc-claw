@@ -13,8 +13,18 @@ const empty: Med = { name: "", dose: "", frequency: "", duration: "" };
 /** Dynamic medication rows. Emits a hidden `medications` field as JSON (dropping
  * blank rows and blank duration) for the server action to validate. When
  * `required`, the first row's fields are native-required so submit needs ≥1 med. */
-export function MedicationFields({ initial, required }: { initial?: Med[]; required?: boolean }) {
-  const [rows, setRows] = useState<Med[]>(initial?.length ? initial : [{ ...empty }]);
+type MedInput = { name: string; dose: string; frequency: string; duration?: string };
+
+export function MedicationFields({
+  initial,
+  required,
+}: {
+  initial?: MedInput[];
+  required?: boolean;
+}) {
+  const [rows, setRows] = useState<Med[]>(
+    initial?.length ? initial.map((m) => ({ ...m, duration: m.duration ?? "" })) : [{ ...empty }],
+  );
 
   const update = (i: number, key: keyof Med, value: string) =>
     setRows((r) => r.map((row, j) => (j === i ? { ...row, [key]: value } : row)));

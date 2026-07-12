@@ -6,6 +6,7 @@ import type { FormState } from "@/app/dashboard/patient-actions";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 import { SubmitButton } from "./submit-button";
 import { FormError } from "./form-error";
 
@@ -82,7 +83,17 @@ export function PatientForm({
         <Textarea id="notes" name="notes" defaultValue={patient?.notes ?? ""} />
       </Field>
       <FormError error={state.error} />
-      <SubmitButton>{submitLabel}</SubmitButton>
+      {state.duplicate ? (
+        <div className="flex flex-col gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+          <p className="text-sm text-foreground">{state.duplicate}</p>
+          {/* Second submit carries force=1 to bypass the duplicate guard. */}
+          <Button type="submit" name="force" value="1" variant="outline">
+            Add anyway
+          </Button>
+        </div>
+      ) : (
+        <SubmitButton>{submitLabel}</SubmitButton>
+      )}
     </form>
   );
 }
