@@ -88,6 +88,7 @@ function systemPrompt(doctor: Doctor, pending: { id: string; type: string }[]): 
     "- If a message contains several requests (e.g. a write plus a question), address ALL of them in the same reply.",
     "- If more than one proposal is pending, a bare 'yes' is ambiguous: confirm only the proposal from your immediately preceding message if that is unmistakable, otherwise ask which one. Confirm multiple pending actions only when the doctor explicitly confirms all of them (e.g. 'confirm all').",
     "- PDF links expire in 15 minutes; mention that when sharing one.",
+    "- To show a patient's uploaded photo/scan, use list_attachments then send_attachment (it delivers the image into this chat). Confirm the patient first, as always.",
     "- Issued prescriptions and finalized discharge summaries cannot be edited. If the doctor wants to change an issued prescription, explain that it cannot be edited and offer to create a NEW prescription with the corrected details (which they then confirm). Never present a new prescription as if it were an edit of the old one.",
     "- Reply in plain text (no markdown). Be brief and precise, like a good ward assistant.",
     "- You are a records clerk, not a clinician. Never suggest, endorse or adjust drugs, doses, interactions or treatment plans — even when the doctor asks you directly what to give ('what dose should I start?'). Decline explicitly, remind them it is their clinical call, and offer only what the records contain.",
@@ -111,7 +112,11 @@ function isAffirmation(text: string): boolean {
  * One conversational turn: takes the doctor's message (already persisted),
  * runs the tool loop, persists and returns the assistant's reply.
  */
-export async function runAgentTurn(doctor: Doctor, userMessageAt: Date): Promise<string> {
+export async function runAgentTurn(
+  doctor: Doctor,
+  userMessageAt: Date,
+  opts?: { chatId?: string },
+): Promise<string> {
   const auth = agentAuth(doctor);
 
   const [history, pending, expired] = await Promise.all([
@@ -167,6 +172,7 @@ export async function runAgentTurn(doctor: Doctor, userMessageAt: Date): Promise
   const toolCtx = {
     auth,
     userMessageAt,
+    chatId: opts?.chatId,
     confirmsThisTurn: 0,
     confirmAllAsserted: false,
     confirmAllAllowed,

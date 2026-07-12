@@ -3,8 +3,10 @@ import { ZodError } from "zod";
 import type { AuthContext } from "@/lib/auth";
 import { ApiError } from "@/lib/http";
 import { listEncounters } from "@/services/encounters";
+import { getAttachmentUrl, listAttachments } from "@/services/attachments";
 import { getPatient, searchPatients } from "@/services/patients";
 import { getPrescriptionDocumentUrl, listPrescriptions } from "@/services/prescriptions";
+import { sendDocument, sendPhoto } from "@/lib/telegram";
 import {
   cancelAction,
   confirmAction,
@@ -94,6 +96,21 @@ export const agentTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     "Get a download link (valid 15 min) for a prescription PDF.",
     { prescriptionId: { type: "string" } },
     ["prescriptionId"],
+  ),
+  tool(
+    "list_attachments",
+    "List a patient's uploaded photos/scans (paper prescriptions, lab reports). Optional kind filter.",
+    {
+      patientId: { type: "string" },
+      kind: { type: "string", enum: ["PRESCRIPTION", "DISCHARGE_SUMMARY", "LAB_REPORT", "OTHER"] },
+    },
+    ["patientId"],
+  ),
+  tool(
+    "send_attachment",
+    "Send a stored photo/scan to the doctor in this chat. Use an attachmentId from list_attachments.",
+    { attachmentId: { type: "string" } },
+    ["attachmentId"],
   ),
 
   // Write proposals — executed only after the doctor confirms in a later message.
@@ -187,6 +204,8 @@ export type ToolContext = {
   auth: AuthContext;
   /** Timestamp of the doctor's current message — the confirm-gating anchor. */
   userMessageAt: Date;
+  /** Telegram chat to send media to (absent outside the bot, e.g. REPL/eval). */
+  chatId?: string;
   /** Mutable per-turn counter enforcing one confirmation per doctor message. */
   confirmsThisTurn: number;
   /** Set once the model asserts the doctor confirmed ALL pending proposals. */
@@ -255,6 +274,32 @@ async function run(ctx: ToolContext, name: string, args: Record<string, unknown>
       return getSummaryDocumentUrl(auth, args.summaryId as string);
     case "get_prescription_pdf":
       return getPrescriptionDocumentUrl(auth, args.prescriptionId as string);
+    case "list_attachments": {
+      const items = await listAttachments(
+        auth,
+        args.patientId as string,
+        args.kind as never,
+      );
+      return items.map((a) => ({
+        attachmentId: a.id,
+        kind: a.kind,
+        fileName: a.fileName,
+        uploadedAt: a.createdAt,
+      }));
+    }
+    case "send_attachment": {
+      if (!ctx.chatId) {
+        return { error: "Sending files is only available in the Telegram chat." };
+      }
+      const { url, attachment } = await getAttachmentUrl(auth, args.attachmentId as string);
+      const caption = attachment.fileName ?? attachment.kind;
+      if (attachment.contentType.startsWith("image/")) {
+        await sendPhoto(ctx.chatId, url, caption);
+      } else {
+        await sendDocument(ctx.chatId, url, caption);
+      }
+      return { sent: true, note: "The file has been sent to the chat." };
+    }
 
     case "propose_create_patient":
       return propose(auth, "patient.create", { data: args });
