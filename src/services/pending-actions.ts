@@ -10,7 +10,7 @@ import {
   summaryCreateSchema,
 } from "@/lib/validation";
 import { createEncounter } from "@/services/encounters";
-import { createPatient, updatePatient } from "@/services/patients";
+import { assertOwnedPatient, createPatient, updatePatient } from "@/services/patients";
 import { createPrescription } from "@/services/prescriptions";
 import { createSummary, updateSummary } from "@/services/summaries";
 
@@ -44,7 +44,15 @@ export async function proposeAction(
   type: PendingActionType,
   payload: unknown,
 ) {
-  actionSchemas[type].parse(payload); // reject malformed proposals immediately
+  const parsed = actionSchemas[type].parse(payload); // reject malformed proposals immediately
+
+  // Validate patient ownership at PROPOSE time, not just at execution. The model
+  // occasionally supplies a patientId it invented or reused instead of one from
+  // a fresh search; catching it here fails fast (so the agent re-searches) rather
+  // than surfacing a confusing error only after the doctor confirms.
+  if ("patientId" in parsed && parsed.patientId) {
+    await assertOwnedPatient(auth, parsed.patientId);
+  }
 
   // Models sometimes re-propose (same type + payload) when they should confirm,
   // or after a change is already saved. Detect both so the tool layer can nudge
