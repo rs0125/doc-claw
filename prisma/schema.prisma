@@ -14,6 +14,7 @@ model Doctor {
   phone              String?
   registrationNumber String? // state medical council registration no.
   clinicName         String?
+  passwordHash       String? // scrypt hash; null until a password is set
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -29,6 +30,7 @@ model Doctor {
   conversationMessages ConversationMessage[]
   loginTokens          LoginToken[]
   webSessions          WebSession[]
+  attachments          Attachment[]
 }
 
 model ApiToken {
@@ -73,9 +75,43 @@ model Patient {
   dischargeSummaries DischargeSummary[]
   encounters         Encounter[]
   prescriptions      Prescription[]
+  attachments        Attachment[]
 
   @@index([doctorId, name])
   @@index([doctorId, phone])
+}
+
+enum AttachmentKind {
+  PRESCRIPTION
+  DISCHARGE_SUMMARY
+  LAB_REPORT
+  OTHER
+}
+
+// A doctor-uploaded image/document (e.g. a photo of a paper prescription),
+// stored privately in R2. Access is always via short-lived presigned URLs.
+// uploadedAt is null until the client confirms the R2 PUT succeeded.
+model Attachment {
+  id                 String         @id @default(cuid())
+  doctorId           String
+  patientId          String
+  kind               AttachmentKind @default(OTHER)
+  prescriptionId     String? // optional link to a specific record
+  dischargeSummaryId String?
+  r2Key              String         @unique
+  contentType        String
+  fileName           String?
+  source             String         @default("web") // "web" | "telegram"
+  uploadedAt         DateTime?
+  createdAt          DateTime       @default(now())
+
+  doctor           Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient          Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  prescription     Prescription?     @relation(fields: [prescriptionId], references: [id], onDelete: SetNull)
+  dischargeSummary DischargeSummary? @relation(fields: [dischargeSummaryId], references: [id], onDelete: SetNull)
+
+  @@index([patientId, kind])
+  @@index([doctorId])
 }
 
 model Encounter {
@@ -114,9 +150,10 @@ model Prescription {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  doctor    Doctor     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  patient   Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  encounter Encounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  doctor      Doctor       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  encounter   Encounter?   @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  attachments Attachment[]
 
   @@index([patientId, date])
   @@index([doctorId])
@@ -147,8 +184,9 @@ model DischargeSummary {
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
 
-  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor      Doctor       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
 
   @@index([doctorId])
   @@index([patientId])

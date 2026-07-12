@@ -7,5 +7,5 @@ import { revokeCurrentSession, SESSION_COOKIE } from "@/lib/web-auth";
 export async function logout() {
   await revokeCurrentSession();
   (await cookies()).delete(SESSION_COOKIE);
-  redirect("/login/error");
+  redirect("/login");
 }

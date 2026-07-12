@@ -12,6 +12,7 @@
     "create-doctor": "tsx scripts/create-doctor.ts",
     "seed-demo": "tsx scripts/seed-demo.ts",
     "telegram-link": "tsx scripts/telegram-link.ts",
+    "set-password": "tsx scripts/set-password.ts",
     "telegram-setup": "tsx scripts/telegram-setup.ts",
     "agent": "tsx scripts/agent-repl.ts",
     "eval": "tsx scripts/agent-eval.ts"

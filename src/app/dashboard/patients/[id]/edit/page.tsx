@@ -14,7 +14,7 @@ export default async function EditPatientPage({
   params: Promise<{ id: string }>;
 }) {
   const doctor = await getSessionDoctor();
-  if (!doctor) redirect("/login/error");
+  if (!doctor) redirect("/login");
   const { id } = await params;
 
   let patient;

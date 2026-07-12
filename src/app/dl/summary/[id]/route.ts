@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // URL for the rendered PDF.
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const doctor = await getSessionDoctor();
-  if (!doctor) return NextResponse.redirect(new URL("/login/error", new URL(req.url).origin));
+  if (!doctor) return NextResponse.redirect(new URL("/login", new URL(req.url).origin));
   const { id } = await params;
   try {
     const { url } = await getSummaryDocumentUrl(webAuth(doctor), id);

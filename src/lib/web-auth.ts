@@ -25,6 +25,19 @@ export async function createLoginToken(doctorId: string): Promise<string> {
   return raw;
 }
 
+/** Create a session for a doctor; returns the raw session id for the cookie. */
+export async function createSession(doctorId: string): Promise<string> {
+  const rawSession = randomBytes(32).toString("hex");
+  await prisma.webSession.create({
+    data: {
+      doctorId,
+      sessionHash: sha256(rawSession),
+      expiresAt: new Date(Date.now() + SESSION_TTL_HOURS * 3600_000),
+    },
+  });
+  return rawSession;
+}
+
 /**
  * Exchange a raw login token for a new session. Single-use and time-bounded:
  * marks the token used inside the same transaction so a link can't be replayed.

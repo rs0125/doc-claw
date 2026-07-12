@@ -21,7 +21,7 @@ export type FormState = { error?: string };
 
 async function auth() {
   const doctor = await getSessionDoctor();
-  if (!doctor) redirect("/login/error");
+  if (!doctor) redirect("/login");
   return webAuth(doctor);
 }
 

@@ -3,8 +3,8 @@ import { redeemLoginToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/we
 
 export const dynamic = "force-dynamic";
 
-// GET /login?t=<one-time token> — from the bot's /web link. Exchanges the token
-// for a session cookie and redirects into the dashboard.
+// GET /auth/callback?t=<one-time token> — from the bot's /web magic link.
+// Exchanges the token for a session cookie and redirects into the dashboard.
 export async function GET(req: Request) {
   const token = new URL(req.url).searchParams.get("t");
   const origin = new URL(req.url).origin;

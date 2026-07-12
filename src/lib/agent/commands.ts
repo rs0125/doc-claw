@@ -65,7 +65,7 @@ export async function routeCommand(doctor: Doctor, text: string): Promise<Comman
 
     case "web": {
       const raw = await createLoginToken(doctor.id);
-      const url = `${appBaseUrl()}/login?t=${raw}`;
+      const url = `${appBaseUrl()}/auth/callback?t=${raw}`;
       return {
         kind: "reply",
         text: `Open your dashboard (link works once, expires in 10 minutes):\n${url}`,

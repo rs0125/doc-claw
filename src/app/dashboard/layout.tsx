@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const doctor = await getSessionDoctor();
-  if (!doctor) redirect("/login/error");
+  if (!doctor) redirect("/login");
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col">

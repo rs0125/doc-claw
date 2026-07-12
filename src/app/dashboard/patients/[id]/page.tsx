@@ -1,17 +1,26 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, FileText, Pill, Stethoscope, Download, Plus, Pencil } from "lucide-react";
+import { ArrowLeft, FileText, Pill, Stethoscope, Download, Plus, Pencil, Paperclip } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AttachmentUpload } from "@/components/forms/attachment-upload";
 import { getSessionDoctor, webAuth } from "@/lib/web-auth";
 import { ApiError } from "@/lib/http";
 import { getPatient } from "@/services/patients";
 import { listEncounters } from "@/services/encounters";
 import { listPrescriptions } from "@/services/prescriptions";
 import { listSummaries } from "@/services/summaries";
+import { listAttachments } from "@/services/attachments";
 import { finalizeSummaryAction } from "@/app/dashboard/patient-actions";
 import type { Medication } from "@/lib/validation";
+
+const KIND_LABEL: Record<string, string> = {
+  PRESCRIPTION: "Prescription",
+  DISCHARGE_SUMMARY: "Discharge summary",
+  LAB_REPORT: "Lab report",
+  OTHER: "Other",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +34,7 @@ function meds(v: unknown): Medication[] {
 
 export default async function PatientPage({ params }: { params: Promise<{ id: string }> }) {
   const doctor = await getSessionDoctor();
-  if (!doctor) redirect("/login/error");
+  if (!doctor) redirect("/login");
   const { id } = await params;
   const auth = webAuth(doctor);
 
@@ -37,11 +46,13 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
     throw err;
   }
 
-  const [encounters, prescriptions, summaries] = await Promise.all([
+  const [encounters, prescriptions, summaries, attachments] = await Promise.all([
     listEncounters(auth, id),
     listPrescriptions(auth, id),
     listSummaries(auth, id),
+    listAttachments(auth, id),
   ]);
+  const isImage = (t: string) => t.startsWith("image/");
 
   return (
     <div className="flex flex-col gap-4">
@@ -184,6 +195,47 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
           </Card>
         ))}
       </Section>
+
+      {/* Attachments (uploaded photos / scans) */}
+      <section className="flex flex-col gap-2">
+        <h2 className="flex items-center gap-2 px-1 text-sm font-semibold text-muted-foreground">
+          <Paperclip className="size-4" />
+          Photos &amp; scans
+          <span className="text-xs font-normal">({attachments.length})</span>
+        </h2>
+        <Card className="p-4">
+          <AttachmentUpload patientId={id} />
+        </Card>
+        {attachments.length > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            {attachments.map((att) => (
+              <a
+                key={att.id}
+                href={`/dl/attachment/${att.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex flex-col overflow-hidden rounded-lg border"
+              >
+                {isImage(att.contentType) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`/dl/attachment/${att.id}`}
+                    alt={KIND_LABEL[att.kind]}
+                    className="aspect-square w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex aspect-square w-full items-center justify-center bg-muted">
+                    <FileText className="size-6 text-muted-foreground" />
+                  </div>
+                )}
+                <span className="truncate px-1.5 py-1 text-[10px] text-muted-foreground">
+                  {KIND_LABEL[att.kind]}
+                </span>
+              </a>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

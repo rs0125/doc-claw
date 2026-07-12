@@ -22,7 +22,7 @@ export default async function DashboardPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const doctor = await getSessionDoctor();
-  if (!doctor) redirect("/login/error");
+  if (!doctor) redirect("/login");
   const { q } = await searchParams;
 
   const { patients, total } = await searchPatients(webAuth(doctor), {

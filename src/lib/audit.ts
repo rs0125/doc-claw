@@ -21,7 +21,7 @@ type Db = PrismaClient | Prisma.TransactionClient;
 
 export type AuditEntry = {
   action: string; // "patient.create", "patient.read", "summary.finalize", ...
-  resourceType: "Patient" | "DischargeSummary" | "Encounter" | "Prescription";
+  resourceType: "Patient" | "DischargeSummary" | "Encounter" | "Prescription" | "Attachment";
   resourceId?: string;
   details?: Prisma.InputJsonValue;
 };
