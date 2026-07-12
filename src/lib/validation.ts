@@ -47,6 +47,26 @@ export const summaryUpdateSchema = summaryCreateSchema.partial().extend({
   status: z.enum(["DRAFT", "FINAL"]).optional(),
 });
 
+export const encounterCreateSchema = z.object({
+  date: isoDate,
+  complaint: z.string().min(1),
+  examination: z.string().optional(),
+  vitals: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
+  diagnosis: z.string().optional(),
+  plan: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export const encounterUpdateSchema = encounterCreateSchema.partial();
+
+export const prescriptionCreateSchema = z.object({
+  date: isoDate,
+  encounterId: z.string().optional(),
+  medications: z.array(medicationSchema).min(1),
+  advice: z.string().optional(),
+  followUpDate: isoDate.optional(),
+});
+
 export const listQuerySchema = z.object({
   q: z.string().trim().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),

@@ -5,8 +5,13 @@ import { ApiError } from "@/lib/http";
 
 export type AuthContext = {
   doctor: Doctor;
-  tokenId: string;
+  tokenId: string | null; // null when acting via the in-process agent, not an API token
 };
+
+/** Auth context for the Telegram agent acting on a linked doctor's behalf. */
+export function agentAuth(doctor: Doctor): AuthContext {
+  return { doctor, tokenId: null };
+}
 
 export function hashToken(rawToken: string): string {
   return createHash("sha256").update(rawToken).digest("hex");

@@ -41,8 +41,20 @@ async function main() {
       data: { doctorId: doctor.id, name: arg("--token-name") ?? "default", tokenHash: hash },
     });
 
+    const { randomBytes } = await import("crypto");
+    const link = await prisma.telegramLink.upsert({
+      where: { doctorId: doctor.id },
+      update: {},
+      create: { doctorId: doctor.id, linkCode: randomBytes(6).toString("hex") },
+    });
+
     console.log(`Doctor: ${doctor.name} <${doctor.email}> (${doctor.id})`);
     console.log(`API token (save it now, it is not stored): ${raw}`);
+    console.log(
+      link.chatId
+        ? "Telegram: already linked"
+        : `Telegram link code: send "/link ${link.linkCode}" to the bot`,
+    );
   } finally {
     await prisma.$disconnect();
   }

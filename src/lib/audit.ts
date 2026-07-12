@@ -6,7 +6,7 @@ type Db = PrismaClient | Prisma.TransactionClient;
 
 export type AuditEntry = {
   action: string; // "patient.create", "patient.read", "summary.finalize", ...
-  resourceType: "Patient" | "DischargeSummary";
+  resourceType: "Patient" | "DischargeSummary" | "Encounter" | "Prescription";
   resourceId?: string;
   details?: Prisma.InputJsonValue;
 };

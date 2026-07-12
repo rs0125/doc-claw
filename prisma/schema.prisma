@@ -17,10 +17,16 @@ model Doctor {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  tokens             ApiToken[]
-  patients           Patient[]
-  dischargeSummaries DischargeSummary[]
-  auditLogs          AuditLog[]
+  tokens               ApiToken[]
+  patients             Patient[]
+  dischargeSummaries   DischargeSummary[]
+  auditLogs            AuditLog[]
+  encounters           Encounter[]
+  prescriptions        Prescription[]
+  idempotencyKeys      IdempotencyKey[]
+  telegramLink         TelegramLink?
+  pendingActions       PendingAction[]
+  conversationMessages ConversationMessage[]
 }
 
 model ApiToken {
@@ -63,9 +69,55 @@ model Patient {
 
   doctor             Doctor             @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   dischargeSummaries DischargeSummary[]
+  encounters         Encounter[]
+  prescriptions      Prescription[]
 
   @@index([doctorId, name])
   @@index([doctorId, phone])
+}
+
+model Encounter {
+  id          String   @id @default(cuid())
+  doctorId    String
+  patientId   String
+  date        DateTime @db.Date
+  complaint   String
+  examination String?
+  vitals      Json? // { "bp": "130/85", "pulse": 78, "temp": "98.6 F", "spo2": 98, ... }
+  diagnosis   String?
+  plan        String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  doctor        Doctor         @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient       Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  prescriptions Prescription[]
+
+  @@index([patientId, date])
+  @@index([doctorId])
+}
+
+model Prescription {
+  id                  String    @id @default(cuid())
+  doctorId            String
+  patientId           String
+  encounterId         String?
+  date                DateTime  @db.Date
+  medications         Json // [{ name, dose, frequency, duration? }]
+  advice              String?
+  followUpDate        DateTime? @db.Date
+  documentKey         String? // R2 object key of the generated PDF
+  documentGeneratedAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  doctor    Doctor     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient   Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  encounter Encounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+
+  @@index([patientId, date])
+  @@index([doctorId])
 }
 
 enum SummaryStatus {
@@ -98,6 +150,71 @@ model DischargeSummary {
 
   @@index([doctorId])
   @@index([patientId])
+}
+
+// Replay protection for write endpoints: same (doctor, key) returns the stored
+// response instead of re-executing. Rows with a null responseStatus are in flight.
+model IdempotencyKey {
+  id             String   @id @default(cuid())
+  doctorId       String
+  key            String
+  responseStatus Int?
+  responseBody   Json?
+  createdAt      DateTime @default(now())
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, key])
+}
+
+// Bridge between a Telegram chat and a doctor. Created with a one-time link
+// code; the doctor sends "/link <code>" to the bot to claim it.
+model TelegramLink {
+  id        String    @id @default(cuid())
+  doctorId  String    @unique
+  chatId    String?   @unique
+  linkCode  String    @unique
+  linkedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+enum PendingActionStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+}
+
+// Confirm-before-write: the agent proposes a change here; it is executed only
+// after the doctor confirms in a LATER message. Enforced server-side.
+model PendingAction {
+  id         String              @id @default(cuid())
+  doctorId   String
+  type       String // "patient.create" | "patient.update" | "encounter.create" | ...
+  payload    Json
+  status     PendingActionStatus @default(PENDING)
+  expiresAt  DateTime
+  resolvedAt DateTime?
+  createdAt  DateTime            @default(now())
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, status])
+}
+
+// Chat history for agent context across serverless invocations.
+model ConversationMessage {
+  id        String   @id @default(cuid())
+  doctorId  String
+  role      String // "user" | "assistant"
+  content   String
+  createdAt DateTime @default(now())
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, createdAt])
 }
 
 model AuditLog {

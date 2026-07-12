@@ -1,8 +1,8 @@
 import { authenticate } from "@/lib/auth";
-import { audit, auditRead } from "@/lib/audit";
 import { handle, json } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
+import { withIdempotency } from "@/lib/idempotency";
 import { listQuerySchema, patientCreateSchema } from "@/lib/validation";
+import { searchPatients, createPatient } from "@/services/patients";
 
 export const dynamic = "force-dynamic";
 
@@ -12,48 +12,17 @@ export const GET = handle(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const { q, limit, offset } = listQuerySchema.parse(Object.fromEntries(searchParams));
 
-  const where = {
-    doctorId: auth.doctor.id,
-    ...(q
-      ? {
-          OR: [
-            { name: { contains: q, mode: "insensitive" as const } },
-            { phone: { contains: q } },
-          ],
-        }
-      : {}),
-  };
-
-  const [patients, total] = await Promise.all([
-    prisma.patient.findMany({ where, orderBy: { updatedAt: "desc" }, take: limit, skip: offset }),
-    prisma.patient.count({ where }),
-  ]);
-
-  auditRead(auth, {
-    action: "patient.search",
-    resourceType: "Patient",
-    details: { q: q ?? null, results: patients.length },
-  });
-
+  const { patients, total } = await searchPatients(auth, { q, limit, offset });
   return json({ patients, total, limit, offset });
 });
 
-// POST /api/patients
+// POST /api/patients (supports Idempotency-Key)
 export const POST = handle(async (req: Request) => {
   const auth = await authenticate(req);
   const data = patientCreateSchema.parse(await req.json());
 
-  const patient = await prisma.$transaction(async (tx) => {
-    const created = await tx.patient.create({
-      data: { ...data, doctorId: auth.doctor.id },
-    });
-    await audit(
-      auth,
-      { action: "patient.create", resourceType: "Patient", resourceId: created.id },
-      tx,
-    );
-    return created;
+  return withIdempotency(auth, req, async () => {
+    const patient = await createPatient(auth, data);
+    return { status: 201, body: { patient: JSON.parse(JSON.stringify(patient)) } };
   });
-
-  return json({ patient }, 201);
 });

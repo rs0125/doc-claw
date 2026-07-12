@@ -1,29 +1,29 @@
 import { authenticate } from "@/lib/auth";
 import { handle, json } from "@/lib/http";
 import { withIdempotency } from "@/lib/idempotency";
-import { summaryCreateSchema } from "@/lib/validation";
-import { createSummary, listSummaries } from "@/services/summaries";
+import { encounterCreateSchema } from "@/lib/validation";
+import { createEncounter, listEncounters } from "@/services/encounters";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ patientId: string }> };
 
-// GET /api/patients/:patientId/discharge-summaries
+// GET /api/patients/:patientId/encounters
 export const GET = handle(async (req: Request, { params }: Ctx) => {
   const auth = await authenticate(req);
   const { patientId } = await params;
-  const summaries = await listSummaries(auth, patientId);
-  return json({ summaries });
+  const encounters = await listEncounters(auth, patientId);
+  return json({ encounters });
 });
 
-// POST /api/patients/:patientId/discharge-summaries (supports Idempotency-Key)
+// POST /api/patients/:patientId/encounters (supports Idempotency-Key)
 export const POST = handle(async (req: Request, { params }: Ctx) => {
   const auth = await authenticate(req);
   const { patientId } = await params;
-  const data = summaryCreateSchema.parse(await req.json());
+  const data = encounterCreateSchema.parse(await req.json());
 
   return withIdempotency(auth, req, async () => {
-    const summary = await createSummary(auth, patientId, data);
-    return { status: 201, body: { summary: JSON.parse(JSON.stringify(summary)) } };
+    const encounter = await createEncounter(auth, patientId, data);
+    return { status: 201, body: { encounter: JSON.parse(JSON.stringify(encounter)) } };
   });
 });
