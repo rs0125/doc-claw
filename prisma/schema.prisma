@@ -170,14 +170,22 @@ model IdempotencyKey {
 // Bridge between a Telegram chat and a doctor. Created with a one-time link
 // code; the doctor sends "/link <code>" to the bot to claim it.
 model TelegramLink {
-  id        String    @id @default(cuid())
-  doctorId  String    @unique
-  chatId    String?   @unique
-  linkCode  String    @unique
-  linkedAt  DateTime?
-  createdAt DateTime  @default(now())
+  id                 String    @id @default(cuid())
+  doctorId           String    @unique
+  chatId             String?   @unique
+  linkCode           String    @unique
+  linkCodeExpiresAt  DateTime?
+  linkedAt           DateTime?
+  createdAt          DateTime  @default(now())
 
   doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+// Webhook replay protection: Telegram redelivers updates it thinks we missed;
+// an update_id that is already here has been handled and must be skipped.
+model ProcessedTelegramUpdate {
+  updateId  BigInt   @id
+  createdAt DateTime @default(now())
 }
 
 enum PendingActionStatus {

@@ -1,6 +1,21 @@
+import { after } from "next/server";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { AuthContext } from "@/lib/auth";
+
+/**
+ * Runs non-blocking work that must still complete on serverless. A bare
+ * floating promise is frozen (often dropped) the moment the response is sent
+ * on Vercel; after() keeps the instance alive until the task finishes.
+ * Falls back to fire-and-forget outside a request scope (CLI, tests).
+ */
+export function deferred(task: () => Promise<unknown>) {
+  try {
+    after(task);
+  } catch {
+    void task();
+  }
+}
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -25,7 +40,7 @@ export async function audit(auth: AuthContext, entry: AuditEntry, db: Db = prism
   });
 }
 
-/** Fire-and-forget variant for read logging — must not fail the read itself. */
+/** Non-blocking variant for read logging — must not fail the read itself. */
 export function auditRead(auth: AuthContext, entry: AuditEntry) {
-  audit(auth, entry).catch((err) => console.error("audit(read) failed", err));
+  deferred(() => audit(auth, entry).catch((err) => console.error("audit(read) failed", err)));
 }

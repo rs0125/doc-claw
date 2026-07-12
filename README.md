@@ -76,8 +76,13 @@ tool call runs through the same doctor-scoped services as the HTTP API.
 
 ## Tests
 
-`npm test` — vitest unit tests (`tests/`) covering validation schemas, token
-hashing, error mapping, PDF rendering, and pending-action confirm gating.
+- `npm test` — vitest unit tests (`tests/`) covering validation schemas, token
+  hashing, error mapping, PDF rendering, and pending-action confirm gating.
+- `npm run eval` — non-deterministic agent evals (`scripts/agent-eval.ts`):
+  drives real conversations (Hinglish shorthand, typos, prompt injection,
+  cross-tenant probes, ambiguous names, missing doses…) through the live
+  OpenAI API against a throwaway doctor, then asserts on database state and
+  judges reply quality with an LLM. `npm run eval -- --only <scenario>` runs one.
 
 ## Roadmap
 

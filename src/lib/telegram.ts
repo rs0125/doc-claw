@@ -34,6 +34,7 @@ export async function sendDocument(chatId: string, url: string, caption?: string
 
 // Minimal shape of the webhook payload we care about.
 export type TelegramUpdate = {
+  update_id?: number;
   message?: {
     message_id: number;
     date: number;

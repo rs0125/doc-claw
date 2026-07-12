@@ -10,7 +10,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "create-doctor": "tsx scripts/create-doctor.ts",
-    "agent": "tsx scripts/agent-repl.ts"
+    "telegram-link": "tsx scripts/telegram-link.ts",
+    "agent": "tsx scripts/agent-repl.ts",
+    "eval": "tsx scripts/agent-eval.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1085.0",

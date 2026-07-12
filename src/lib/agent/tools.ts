@@ -1,4 +1,5 @@
 import type OpenAI from "openai";
+import { ZodError } from "zod";
 import type { AuthContext } from "@/lib/auth";
 import { ApiError } from "@/lib/http";
 import { listEncounters } from "@/services/encounters";
@@ -7,8 +8,8 @@ import { getPrescriptionDocumentUrl, listPrescriptions } from "@/services/prescr
 import {
   cancelAction,
   confirmAction,
-  isActionType,
   proposeAction,
+  type PendingActionType,
 } from "@/services/pending-actions";
 import { getSummary, getSummaryDocumentUrl, listSummaries } from "@/services/summaries";
 
@@ -24,20 +25,17 @@ const medicationParam = {
   required: ["name", "dose", "frequency"],
 } as const;
 
-const patientFieldsParam = {
-  type: "object",
-  properties: {
-    name: { type: "string" },
-    dateOfBirth: { type: "string", description: "YYYY-MM-DD" },
-    sex: { type: "string", enum: ["MALE", "FEMALE", "OTHER", "UNKNOWN"] },
-    phone: { type: "string" },
-    abhaId: { type: "string" },
-    bloodGroup: { type: "string" },
-    allergies: { type: "array", items: { type: "string" } },
-    chronicConditions: { type: "array", items: { type: "string" } },
-    currentMedications: { type: "array", items: medicationParam },
-    notes: { type: "string" },
-  },
+const patientFields = {
+  name: { type: "string" },
+  dateOfBirth: { type: "string", description: "YYYY-MM-DD; omit if unknown" },
+  sex: { type: "string", enum: ["MALE", "FEMALE", "OTHER", "UNKNOWN"] },
+  phone: { type: "string" },
+  abhaId: { type: "string" },
+  bloodGroup: { type: "string" },
+  allergies: { type: "array", items: { type: "string" } },
+  chronicConditions: { type: "array", items: { type: "string" } },
+  currentMedications: { type: "array", items: medicationParam },
+  notes: { type: "string" },
 } as const;
 
 function tool(
@@ -55,6 +53,9 @@ function tool(
     },
   };
 }
+
+const PROPOSE_NOTE =
+  "Nothing is saved yet: show the doctor exactly what will be saved and ask them to confirm.";
 
 export const agentTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   tool(
@@ -89,21 +90,75 @@ export const agentTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     { prescriptionId: { type: "string" } },
     ["prescriptionId"],
   ),
+
+  // Write proposals — executed only after the doctor confirms in a later message.
   tool(
-    "propose_action",
-    "Propose a write (create/update). Nothing is saved until the doctor confirms in their NEXT message. " +
-      "type is one of: patient.create, patient.update, encounter.create, prescription.create, summary.create, summary.finalize. " +
-      "payload shapes: patient.create {data: patientFields}; patient.update {patientId, data: patientFields}; " +
-      "encounter.create {patientId, data: {date, complaint, examination?, vitals?, diagnosis?, plan?, notes?}}; " +
-      "prescription.create {patientId, data: {date, medications: [medication], advice?, followUpDate?, encounterId?}}; " +
-      "summary.create {patientId, data: {admissionDate, dischargeDate, diagnosis, hospitalCourse, presentingComplaint?, investigations?, treatmentGiven?, conditionAtDischarge?, medicationsAtDischarge?, followUpInstructions?}}; " +
-      "summary.finalize {summaryId}. Dates are YYYY-MM-DD. Medication: {name, dose, frequency, duration?, notes?}. " +
-      "patientFields: " + JSON.stringify(patientFieldsParam.properties),
+    "propose_create_patient",
+    `Propose registering a new patient. ${PROPOSE_NOTE}`,
+    patientFields,
+    ["name"],
+  ),
+  tool(
+    "propose_update_patient",
+    `Propose updating an existing patient; include only the fields to change. ${PROPOSE_NOTE}`,
+    { patientId: { type: "string" }, ...patientFields },
+    ["patientId"],
+  ),
+  tool(
+    "propose_record_encounter",
+    `Propose recording a visit/encounter. ${PROPOSE_NOTE}`,
     {
-      type: { type: "string" },
-      payload: { type: "object", description: "Payload matching the shape for the given type" },
+      patientId: { type: "string" },
+      date: { type: "string", description: "YYYY-MM-DD" },
+      complaint: { type: "string" },
+      examination: { type: "string" },
+      vitals: {
+        type: "object",
+        description: 'e.g. {"bp": "130/85", "pulse": 78}',
+        additionalProperties: { type: ["string", "number"] },
+      },
+      diagnosis: { type: "string" },
+      plan: { type: "string" },
+      notes: { type: "string" },
     },
-    ["type", "payload"],
+    ["patientId", "date", "complaint"],
+  ),
+  tool(
+    "propose_create_prescription",
+    `Propose a prescription. Every medication needs name, dose and frequency — ask the doctor rather than inventing any of them. ${PROPOSE_NOTE}`,
+    {
+      patientId: { type: "string" },
+      date: { type: "string", description: "YYYY-MM-DD" },
+      medications: { type: "array", items: medicationParam },
+      advice: { type: "string" },
+      followUpDate: { type: "string", description: "YYYY-MM-DD" },
+      encounterId: { type: "string" },
+    },
+    ["patientId", "date", "medications"],
+  ),
+  tool(
+    "propose_create_discharge_summary",
+    `Propose a discharge summary (created as DRAFT). ${PROPOSE_NOTE}`,
+    {
+      patientId: { type: "string" },
+      admissionDate: { type: "string", description: "YYYY-MM-DD" },
+      dischargeDate: { type: "string", description: "YYYY-MM-DD" },
+      diagnosis: { type: "string" },
+      presentingComplaint: { type: "string" },
+      hospitalCourse: { type: "string" },
+      investigations: { type: "string" },
+      treatmentGiven: { type: "string" },
+      conditionAtDischarge: { type: "string" },
+      medicationsAtDischarge: { type: "array", items: medicationParam },
+      followUpInstructions: { type: "string" },
+    },
+    ["patientId", "admissionDate", "dischargeDate", "diagnosis", "hospitalCourse"],
+  ),
+  tool(
+    "propose_finalize_discharge_summary",
+    `Propose finalizing a discharge summary — it becomes immutable. ${PROPOSE_NOTE}`,
+    { summaryId: { type: "string" } },
+    ["summaryId"],
   ),
   tool(
     "confirm_action",
@@ -132,9 +187,21 @@ export async function executeTool(
     return JSON.stringify(result);
   } catch (err) {
     if (err instanceof ApiError) return JSON.stringify({ error: err.message });
+    if (err instanceof ZodError) {
+      // Feed the exact validation problems back so the model can fix its call.
+      return JSON.stringify({
+        error: "Invalid arguments",
+        issues: err.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
+      });
+    }
     console.error(`tool ${name} failed`, err);
     return JSON.stringify({ error: "Tool failed unexpectedly" });
   }
+}
+
+async function propose(auth: AuthContext, type: PendingActionType, payload: unknown) {
+  const action = await proposeAction(auth, type, payload);
+  return { actionId: action.id, status: "PENDING", expiresAt: action.expiresAt, note: PROPOSE_NOTE };
 }
 
 async function run(ctx: ToolContext, name: string, args: Record<string, unknown>) {
@@ -156,17 +223,28 @@ async function run(ctx: ToolContext, name: string, args: Record<string, unknown>
       return getSummaryDocumentUrl(auth, args.summaryId as string);
     case "get_prescription_pdf":
       return getPrescriptionDocumentUrl(auth, args.prescriptionId as string);
-    case "propose_action": {
-      const type = args.type as string;
-      if (!isActionType(type)) return { error: `Unknown action type ${type}` };
-      const action = await proposeAction(auth, type, args.payload);
-      return {
-        actionId: action.id,
-        status: "PENDING",
-        expiresAt: action.expiresAt,
-        note: "Show the doctor exactly what will be saved and ask them to confirm.",
-      };
+
+    case "propose_create_patient":
+      return propose(auth, "patient.create", { data: args });
+    case "propose_update_patient": {
+      const { patientId, ...data } = args;
+      return propose(auth, "patient.update", { patientId, data });
     }
+    case "propose_record_encounter": {
+      const { patientId, ...data } = args;
+      return propose(auth, "encounter.create", { patientId, data });
+    }
+    case "propose_create_prescription": {
+      const { patientId, ...data } = args;
+      return propose(auth, "prescription.create", { patientId, data });
+    }
+    case "propose_create_discharge_summary": {
+      const { patientId, ...data } = args;
+      return propose(auth, "summary.create", { patientId, data });
+    }
+    case "propose_finalize_discharge_summary":
+      return propose(auth, "summary.finalize", { summaryId: args.summaryId });
+
     case "confirm_action":
       return confirmAction(auth, args.actionId as string, ctx.userMessageAt);
     case "cancel_action":

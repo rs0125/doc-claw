@@ -27,6 +27,11 @@ describe("patientCreateSchema", () => {
     expect(() => patientCreateSchema.parse({ name: "X", dateOfBirth: "14 March 1961" })).toThrow();
   });
 
+  it("rejects well-formed but impossible calendar dates", () => {
+    expect(() => patientCreateSchema.parse({ name: "X", dateOfBirth: "1990-02-31" })).toThrow();
+    expect(() => patientCreateSchema.parse({ name: "X", dateOfBirth: "2026-13-01" })).toThrow();
+  });
+
   it("rejects an empty name and unknown sex values", () => {
     expect(() => patientCreateSchema.parse({ name: "" })).toThrow();
     expect(() => patientCreateSchema.parse({ name: "X", sex: "M" })).toThrow();

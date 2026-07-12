@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "crypto";
 import type { Doctor } from "@/generated/prisma/client";
+import { deferred } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { ApiError } from "@/lib/http";
 
@@ -45,9 +46,11 @@ export async function authenticate(req: Request): Promise<AuthContext> {
   }
 
   // Best-effort usage tracking; never blocks the request.
-  prisma.apiToken
-    .update({ where: { id: token.id }, data: { lastUsedAt: new Date() } })
-    .catch(() => {});
+  deferred(() =>
+    prisma.apiToken
+      .update({ where: { id: token.id }, data: { lastUsedAt: new Date() } })
+      .catch(() => {}),
+  );
 
   return { doctor: token.doctor, tokenId: token.id };
 }

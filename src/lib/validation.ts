@@ -13,6 +13,12 @@ export type Medication = z.infer<typeof medicationSchema>;
 const isoDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD")
+  // Round-trip check: V8 silently rolls impossible dates over (Feb 31 → Mar 3),
+  // so NaN alone doesn't catch them.
+  .refine((s) => {
+    const d = new Date(`${s}T00:00:00.000Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+  }, "Not a real calendar date")
   .transform((s) => new Date(`${s}T00:00:00.000Z`));
 
 export const patientCreateSchema = z.object({

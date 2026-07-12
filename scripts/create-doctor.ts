@@ -45,7 +45,11 @@ async function main() {
     const link = await prisma.telegramLink.upsert({
       where: { doctorId: doctor.id },
       update: {},
-      create: { doctorId: doctor.id, linkCode: randomBytes(6).toString("hex") },
+      create: {
+        doctorId: doctor.id,
+        linkCode: randomBytes(6).toString("hex"),
+        linkCodeExpiresAt: new Date(Date.now() + 48 * 3600_000),
+      },
     });
 
     console.log(`Doctor: ${doctor.name} <${doctor.email}> (${doctor.id})`);

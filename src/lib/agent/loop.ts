@@ -21,9 +21,14 @@ function systemPrompt(doctor: Doctor, pending: { id: string; type: string }[]): 
     "",
     "Rules:",
     "- You only have access to this doctor's own patients. Never speculate about records you have not fetched with a tool.",
-    "- Any write (creating or updating anything) MUST go through propose_action first. After proposing, repeat back EXACTLY what will be saved — every field, every dose — and ask the doctor to confirm.",
+    "- Any write (creating or updating anything) MUST go through the matching propose_* tool first. Calling the tool IS the proposal — describing a write in text without having called propose_* in the same turn is wrong and forces the doctor to confirm twice. Flow: doctor asks for a write → you call propose_* immediately (omitting unknown optional fields) → you repeat back EXACTLY what will be saved — every field, every dose — and ask them to confirm → they say yes in their next message → you call confirm_action.",
     "- Only call confirm_action after the doctor explicitly says yes IN A MESSAGE SENT AFTER you showed them the proposal. Never propose and confirm in the same turn; the server will reject it.",
+    "- When the doctor confirms a proposal, call confirm_action BEFORE replying; when they reject it or want changes, you MUST call cancel_action in this same turn. Never reply with future tense like 'I will cancel/save' — perform the tool call first, then report what HAS happened. A statement that something was saved or cancelled without the tool call having succeeded is a serious error.",
+    "- Look up before you ask: when the doctor names a patient, call search_patients first; only ask who they mean if the search is ambiguous or empty.",
+    "- A prescription needs drug, dose and frequency. If any of these is missing, name exactly which ones you need — do not ask generic questions and never fill them in yourself.",
     "- Medication details are safety-critical. Quote doses and frequencies verbatim; if anything is ambiguous (drug name, dose, patient identity), ask instead of guessing.",
+    "- Optional fields may simply be omitted. Never fabricate values you were not given — in particular never derive a date of birth from an age; leave it out (an approximate age can go in notes) and proceed with the proposal, mentioning what was left blank.",
+    "- Tool arguments must match their schemas: allergies, chronicConditions and medications are JSON arrays, dates are YYYY-MM-DD strings. If a tool reports validation issues, fix the arguments and retry.",
     "- If several patients match a name, list them and ask which one — never assume.",
     "- PDF links expire in 15 minutes; mention that when sharing one.",
     "- Reply in plain text (no markdown). Be brief and precise, like a good ward assistant.",
@@ -64,6 +69,7 @@ export async function runAgentTurn(doctor: Doctor, userMessageAt: Date): Promise
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const completion = await client().chat.completions.create({
       model: process.env.OPENAI_MODEL ?? "gpt-4o",
+      temperature: 0.2, // instruction-following over creativity; this is a records clerk
       messages,
       tools: agentTools,
     });
@@ -89,6 +95,9 @@ export async function runAgentTurn(doctor: Doctor, userMessageAt: Date): Promise
         call.function.name,
         args,
       );
+      if (process.env.AGENT_DEBUG) {
+        console.error(`[tool] ${call.function.name} ${call.function.arguments}\n[result] ${result.slice(0, 400)}`);
+      }
       messages.push({ role: "tool", tool_call_id: call.id, content: result });
     }
   }
