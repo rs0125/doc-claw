@@ -67,7 +67,8 @@ export async function searchPatients(
     LIMIT ${limit} OFFSET ${offset}
   `;
 
-  const patients = rows.map(({ match_score, ...p }) => p);
+  // Drop the computed ranking column; return plain Patient rows.
+  const patients = rows.map(({ match_score: _score, ...p }) => p);
 
   auditRead(auth, {
     action: "patient.search",

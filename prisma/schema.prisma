@@ -27,6 +27,8 @@ model Doctor {
   telegramLink         TelegramLink?
   pendingActions       PendingAction[]
   conversationMessages ConversationMessage[]
+  loginTokens          LoginToken[]
+  webSessions          WebSession[]
 }
 
 model ApiToken {
@@ -210,6 +212,36 @@ model PendingAction {
   doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 
   @@index([doctorId, status])
+}
+
+// One-time magic-link token minted by the bot's /web command. Exchanged once,
+// within a short window, for a WebSession. Only the sha256 hash is stored.
+model LoginToken {
+  id        String    @id @default(cuid())
+  doctorId  String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+}
+
+// Browser session established after a magic link is exchanged. The cookie holds
+// the raw id; only its sha256 hash is stored. Revocable and auto-expiring.
+model WebSession {
+  id          String    @id @default(cuid())
+  doctorId    String
+  sessionHash String    @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
 }
 
 // Chat history for agent context across serverless invocations.

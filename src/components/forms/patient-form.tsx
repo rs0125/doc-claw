@@ -1,0 +1,83 @@
+"use client";
+
+import { useActionState } from "react";
+import type { Patient } from "@/generated/prisma/client";
+import type { FormState } from "@/app/dashboard/patient-actions";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Field } from "@/components/ui/field";
+import { SubmitButton } from "./submit-button";
+import { FormError } from "./form-error";
+
+type Action = (prev: FormState, fd: FormData) => Promise<FormState>;
+
+export function PatientForm({
+  action,
+  patient,
+  submitLabel,
+}: {
+  action: Action;
+  patient?: Patient;
+  submitLabel: string;
+}) {
+  const [state, formAction] = useActionState(action, {});
+  const dob = patient?.dateOfBirth ? patient.dateOfBirth.toISOString().slice(0, 10) : "";
+
+  return (
+    <form action={formAction} className="flex flex-col gap-4">
+      <Field label="Name" htmlFor="name">
+        <Input id="name" name="name" defaultValue={patient?.name} required />
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Date of birth" htmlFor="dateOfBirth">
+          <Input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={dob} />
+        </Field>
+        <Field label="Sex" htmlFor="sex">
+          <select
+            id="sex"
+            name="sex"
+            defaultValue={patient?.sex ?? "UNKNOWN"}
+            className="flex h-10 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="UNKNOWN">—</option>
+            <option value="MALE">Male</option>
+            <option value="FEMALE">Female</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </Field>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Phone" htmlFor="phone">
+          <Input id="phone" name="phone" defaultValue={patient?.phone ?? ""} />
+        </Field>
+        <Field label="Blood group" htmlFor="bloodGroup">
+          <Input id="bloodGroup" name="bloodGroup" defaultValue={patient?.bloodGroup ?? ""} />
+        </Field>
+      </div>
+      <Field label="ABHA ID" htmlFor="abhaId">
+        <Input id="abhaId" name="abhaId" defaultValue={patient?.abhaId ?? ""} />
+      </Field>
+      <Field label="Allergies" htmlFor="allergies" hint="Comma-separated">
+        <Input
+          id="allergies"
+          name="allergies"
+          defaultValue={patient?.allergies.join(", ")}
+          placeholder="penicillin, sulfa"
+        />
+      </Field>
+      <Field label="Chronic conditions" htmlFor="chronicConditions" hint="Comma-separated">
+        <Input
+          id="chronicConditions"
+          name="chronicConditions"
+          defaultValue={patient?.chronicConditions.join(", ")}
+          placeholder="Type 2 diabetes, Hypertension"
+        />
+      </Field>
+      <Field label="Notes" htmlFor="notes">
+        <Textarea id="notes" name="notes" defaultValue={patient?.notes ?? ""} />
+      </Field>
+      <FormError error={state.error} />
+      <SubmitButton>{submitLabel}</SubmitButton>
+    </form>
+  );
+}

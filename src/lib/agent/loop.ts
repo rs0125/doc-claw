@@ -59,11 +59,7 @@ async function createCompletion(
   throw lastErr;
 }
 
-function systemPrompt(
-  doctor: Doctor,
-  pending: { id: string; type: string }[],
-  expired: { id: string; type: string }[],
-): string {
+function systemPrompt(doctor: Doctor, pending: { id: string; type: string }[]): string {
   return [
     `You are a patient-records assistant for ${doctor.name}, a doctor in India, chatting over Telegram.`,
     `Today's date is ${new Date().toISOString().slice(0, 10)}.`,
@@ -133,7 +129,7 @@ export async function runAgentTurn(doctor: Doctor, userMessageAt: Date): Promise
   const currentUserText = history.find((m) => m.role === "user")?.content ?? "";
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-    { role: "system", content: systemPrompt(doctor, pending, expired) },
+    { role: "system", content: systemPrompt(doctor, pending) },
     ...[...history].reverse().map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content.slice(0, MAX_MESSAGE_CHARS),

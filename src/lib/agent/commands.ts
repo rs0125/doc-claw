@@ -1,6 +1,11 @@
 import type { Doctor } from "@/generated/prisma/client";
 import { agentAuth } from "@/lib/auth";
 import { cancelAction, listPendingActions } from "@/services/pending-actions";
+import { createLoginToken } from "@/lib/web-auth";
+
+function appBaseUrl(): string {
+  return (process.env.APP_BASE_URL ?? "https://doc-claw.vercel.app").replace(/\/$/, "");
+}
 
 export type BotCommand = { command: string; description: string };
 
@@ -15,6 +20,7 @@ export const BOT_COMMANDS: BotCommand[] = [
   { command: "visit", description: "Record a visit / encounter" },
   { command: "prescribe", description: "Write a prescription" },
   { command: "summary", description: "Prepare a discharge summary" },
+  { command: "web", description: "Open your dashboard in a browser" },
   { command: "cancel", description: "Cancel a pending change" },
   { command: "help", description: "What this bot can do" },
 ];
@@ -28,6 +34,7 @@ export const HELP_TEXT = [
   "/visit <details> — record a visit / encounter",
   "/prescribe <details> — write a prescription",
   "/summary <name> — prepare a discharge summary",
+  "/web — open your dashboard in a browser",
   "/cancel — cancel a change you haven't confirmed",
   "/unlink — disconnect this chat",
   "",
@@ -55,6 +62,15 @@ export async function routeCommand(doctor: Doctor, text: string): Promise<Comman
     case "help":
     case "start":
       return { kind: "reply", text: HELP_TEXT };
+
+    case "web": {
+      const raw = await createLoginToken(doctor.id);
+      const url = `${appBaseUrl()}/login?t=${raw}`;
+      return {
+        kind: "reply",
+        text: `Open your dashboard (link works once, expires in 10 minutes):\n${url}`,
+      };
+    }
 
     case "cancel": {
       const auth = agentAuth(doctor);

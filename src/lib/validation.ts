@@ -4,7 +4,6 @@ import { z } from "zod";
 // ("Ramesh" vs "Ra​mesh" as two visually identical patients) — strip them from
 // identity-critical fields before storage.
 const INVISIBLE_CHARS =
-  // eslint-disable-next-line no-control-regex
   /[\u0000-\u0008\u000B-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g;
 
 const sanitizedName = (max: number) =>
