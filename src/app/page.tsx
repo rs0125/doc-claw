@@ -43,7 +43,7 @@ export default async function Home({
             <LoginForm />
             <Link
               href="/forgot"
-              className="text-center text-xs text-muted-foreground hover:text-foreground"
+              className="-my-2 inline-flex min-h-10 items-center justify-center py-2 text-center text-xs text-muted-foreground hover:text-foreground"
             >
               Forgot password?
             </Link>

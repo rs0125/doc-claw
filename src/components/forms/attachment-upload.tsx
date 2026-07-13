@@ -88,7 +88,7 @@ export function AttachmentUpload({
           size="sm"
           disabled={busy}
           onClick={() => inputRef.current?.click()}
-          className={compact ? "h-7 px-2 text-xs text-muted-foreground" : ""}
+          className={compact ? "h-10 px-2.5 text-xs text-muted-foreground" : ""}
         >
           {busy ? <Loader2 className="animate-spin" /> : <ImagePlus />}
           {busy ? "Uploading…" : compact ? "Add photo" : "Upload photo"}

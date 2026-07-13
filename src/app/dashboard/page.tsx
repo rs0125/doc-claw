@@ -96,7 +96,7 @@ export default async function DashboardPage({
               <Link
                 href={href({ sex, blood: bloodGroup })}
                 aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <X className="size-4" />
               </Link>
@@ -125,7 +125,10 @@ export default async function DashboardPage({
             Apply filters
           </Button>
           {filtersActive && (
-            <Link href="/dashboard" className="text-xs text-muted-foreground hover:text-foreground">
+            <Link
+              href="/dashboard"
+              className="inline-flex h-10 items-center rounded-md px-2 text-xs text-muted-foreground hover:text-foreground"
+            >
               Clear all
             </Link>
           )}

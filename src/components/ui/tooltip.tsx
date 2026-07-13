@@ -20,7 +20,7 @@ export function Tooltip({
       <span
         role="tooltip"
         className={cn(
-          "pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground opacity-0 shadow-sm transition-opacity duration-100 group-hover/tt:opacity-100",
+          "pointer-events-none absolute left-1/2 z-50 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground shadow-sm group-hover/tt:block",
           side === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5",
         )}
       >

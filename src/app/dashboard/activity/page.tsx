@@ -46,7 +46,7 @@ export default async function ActivityPage() {
     <div className="flex flex-col gap-4">
       <Link
         href="/dashboard/account"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        className="-my-2.5 inline-flex items-center gap-1 self-start py-2.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-4" /> Account
       </Link>

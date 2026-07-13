@@ -101,7 +101,7 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
     <div className="flex flex-col gap-4">
       <Link
         href="/dashboard"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        className="-my-2.5 inline-flex items-center gap-1 self-start py-2.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-4" /> Patients
       </Link>
@@ -181,7 +181,7 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
                 <Tooltip label="Download prescription PDF">
                   <a
                     href={`/dl/prescription/${rx.id}`}
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                    className="inline-flex h-10 items-center gap-1 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
                   >
                     <Download className="size-3.5" /> PDF
                   </a>
@@ -189,7 +189,7 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
                 <Tooltip label="Edit prescription">
                   <Link
                     href={`/dashboard/patients/${id}/prescription/${rx.id}/edit`}
-                    className="inline-flex rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                   >
                     <Pencil className="size-3.5" />
                   </Link>
@@ -197,7 +197,7 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
                 <ConfirmButton
                   action={archivePrescriptionAction.bind(null, id, rx.id)}
                   trigger={<Trash2 className="size-3.5" />}
-                  triggerClassName="size-8 p-0 text-muted-foreground hover:text-destructive"
+                  triggerClassName="size-10 p-0 text-muted-foreground hover:text-destructive"
                   title="Delete prescription?"
                   message="This removes the prescription from the patient's record. It won't appear in lists or PDFs."
                   confirmLabel="Delete prescription"
@@ -244,7 +244,7 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
               <Tooltip label="Download discharge summary PDF">
                 <a
                   href={`/dl/summary/${s.id}`}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="inline-flex h-10 items-center gap-1 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   <Download className="size-3.5" /> PDF
                 </a>
@@ -254,7 +254,7 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
                   <Tooltip label="Edit draft">
                     <Link
                       href={`/dashboard/patients/${id}/summary/${s.id}/edit`}
-                      className="inline-flex rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                     >
                       <Pencil className="size-3.5" />
                     </Link>
@@ -267,7 +267,7 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
                       </span>
                     }
                     triggerVariant="ghost"
-                    triggerClassName="h-8 text-primary"
+                    triggerClassName="h-10 text-primary"
                     title="Finalize discharge summary?"
                     message="Finalizing locks this summary permanently — it can no longer be edited. Continue?"
                     confirmLabel="Finalize"
@@ -278,7 +278,7 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
               <ConfirmButton
                 action={archiveSummaryAction.bind(null, id, s.id)}
                 trigger={<Trash2 className="size-3.5" />}
-                triggerClassName="size-8 p-0 text-muted-foreground hover:text-destructive"
+                triggerClassName="size-10 p-0 text-muted-foreground hover:text-destructive"
                 title="Delete discharge summary?"
                 message="This removes the summary from the patient's record. It won't appear in lists."
                 confirmLabel="Delete summary"
@@ -310,7 +310,7 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
                 <Tooltip label="Edit visit">
                   <Link
                     href={`/dashboard/patients/${id}/visit/${e.id}/edit`}
-                    className="inline-flex rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                   >
                     <Pencil className="size-3.5" />
                   </Link>
@@ -318,7 +318,7 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
                 <ConfirmButton
                   action={archiveEncounterAction.bind(null, id, e.id)}
                   trigger={<Trash2 className="size-3.5" />}
-                  triggerClassName="size-8 p-0 text-muted-foreground hover:text-destructive"
+                  triggerClassName="size-10 p-0 text-muted-foreground hover:text-destructive"
                   title="Delete visit?"
                   message="This removes the visit from the patient's record. It won't appear in lists."
                   confirmLabel="Delete visit"

@@ -45,9 +45,9 @@ export function AttachmentThumb({
         onClick={del}
         disabled={busy}
         aria-label="Delete file"
-        className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+        className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-1.5 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 pointer-coarse:opacity-100"
       >
-        {busy ? <Loader2 className="size-3 animate-spin" /> : <X className="size-3" />}
+        {busy ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
       </button>
     </div>
   );

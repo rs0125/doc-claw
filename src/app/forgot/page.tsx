@@ -18,7 +18,10 @@ export default function ForgotPage() {
           <ForgotForm />
         </CardContent>
       </Card>
-      <Link href="/" className="text-center text-xs text-muted-foreground hover:text-foreground">
+      <Link
+        href="/"
+        className="inline-flex min-h-10 items-center justify-center text-center text-xs text-muted-foreground hover:text-foreground"
+      >
         Back to sign in
       </Link>
     </main>
