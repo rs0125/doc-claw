@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { Prisma } from "@/generated/prisma/client";
 import type { Patient } from "@/generated/prisma/client";
 import type { AuthContext } from "@/lib/auth";
 import { audit, auditRead } from "@/lib/audit";
@@ -28,13 +29,26 @@ export async function assertOwnedPatient(auth: AuthContext, patientId: string) {
 // ILIKE substring branch still catches exact partials the score would miss.
 const FUZZY_THRESHOLD = 0.2;
 
+export type PatientFilters = { sex?: string; bloodGroup?: string };
+
 export async function searchPatients(
   auth: AuthContext,
-  { q, limit, offset }: { q?: string; limit: number; offset: number },
+  {
+    q,
+    sex,
+    bloodGroup,
+    limit,
+    offset,
+  }: { q?: string; limit: number; offset: number } & PatientFilters,
 ) {
-  // No query: most-recently-updated patients.
+  // No query: filtered, most-recently-updated, real paginated total.
   if (!q) {
-    const where = { doctorId: auth.doctor.id, archivedAt: null };
+    const where = {
+      doctorId: auth.doctor.id,
+      archivedAt: null,
+      ...(sex ? { sex: sex as never } : {}),
+      ...(bloodGroup ? { bloodGroup } : {}),
+    };
     const [patients, total] = await Promise.all([
       prisma.patient.findMany({ where, orderBy: { updatedAt: "desc" }, take: limit, skip: offset }),
       prisma.patient.count({ where }),
@@ -42,43 +56,51 @@ export async function searchPatients(
     auditRead(auth, {
       action: "patient.search",
       resourceType: "Patient",
-      details: { q: null, results: patients.length },
+      details: { q: null, sex, bloodGroup, results: patients.length },
     });
     return { patients, total };
   }
 
-  // Fuzzy: trigram similarity on name, ILIKE fallback for substrings, plus
-  // phone substring. Ranked best-match first. Parameterized to prevent injection.
+  // Fuzzy: trigram + ILIKE on name, phone substring, with filters — composed as
+  // parameterized SQL fragments so both the page and the count share one WHERE.
   const like = `%${q}%`;
-  const rows = await prisma.$queryRaw<(Patient & { match_score: number })[]>`
-    SELECT *,
-           GREATEST(
-             similarity("name", ${q}),
-             CASE WHEN "name" ILIKE ${like} THEN 0.85 ELSE 0 END,
-             CASE WHEN "phone" IS NOT NULL AND "phone" LIKE ${like} THEN 0.85 ELSE 0 END
-           ) AS match_score
-    FROM "Patient"
-    WHERE "doctorId" = ${auth.doctor.id}
-      AND "archivedAt" IS NULL
-      AND (
-        similarity("name", ${q}) > ${FUZZY_THRESHOLD}
-        OR "name" ILIKE ${like}
-        OR ("phone" IS NOT NULL AND "phone" LIKE ${like})
-      )
-    ORDER BY match_score DESC, "updatedAt" DESC
-    LIMIT ${limit} OFFSET ${offset}
-  `;
+  const conds: Prisma.Sql[] = [
+    Prisma.sql`"doctorId" = ${auth.doctor.id}`,
+    Prisma.sql`"archivedAt" IS NULL`,
+    Prisma.sql`(similarity("name", ${q}) > ${FUZZY_THRESHOLD} OR "name" ILIKE ${like} OR ("phone" IS NOT NULL AND "phone" LIKE ${like}))`,
+  ];
+  if (sex) conds.push(Prisma.sql`"sex"::text = ${sex}`);
+  if (bloodGroup) conds.push(Prisma.sql`"bloodGroup" = ${bloodGroup}`);
+  const where = Prisma.join(conds, " AND ");
 
-  // Drop the computed ranking column; return plain Patient rows.
+  const [rows, countRows] = await Promise.all([
+    prisma.$queryRaw<(Patient & { match_score: number })[]>(Prisma.sql`
+      SELECT *,
+             GREATEST(
+               similarity("name", ${q}),
+               CASE WHEN "name" ILIKE ${like} THEN 0.85 ELSE 0 END,
+               CASE WHEN "phone" IS NOT NULL AND "phone" LIKE ${like} THEN 0.85 ELSE 0 END
+             ) AS match_score
+      FROM "Patient"
+      WHERE ${where}
+      ORDER BY match_score DESC, "updatedAt" DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `),
+    prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
+      SELECT COUNT(*) AS count FROM "Patient" WHERE ${where}
+    `),
+  ]);
+
   const patients = rows.map(({ match_score: _score, ...p }) => p);
+  const total = Number(countRows[0]?.count ?? patients.length);
 
   auditRead(auth, {
     action: "patient.search",
     resourceType: "Patient",
-    details: { q, results: patients.length, fuzzy: true },
+    details: { q, sex, bloodGroup, results: patients.length, fuzzy: true },
   });
 
-  return { patients, total: patients.length };
+  return { patients, total };
 }
 
 export async function getPatient(auth: AuthContext, patientId: string) {

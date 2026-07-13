@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronRight, Search, UserPlus } from "lucide-react";
+import { ChevronRight, ChevronLeft, Search, UserPlus, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,10 @@ import { searchPatients } from "@/services/patients";
 
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 10;
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
+const selectClass =
+  "h-10 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 function ageFrom(dob: Date | null, approximate = false): string {
   if (!dob) return "";
@@ -18,28 +21,43 @@ function ageFrom(dob: Date | null, approximate = false): string {
   return `${approximate ? "~" : ""}${years}y`;
 }
 
+/** Build a dashboard URL preserving the given params (omitting empty ones). */
+function href(params: Record<string, string | number | undefined>): string {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== "" && v !== null) sp.set(k, String(v));
+  }
+  const s = sp.toString();
+  return s ? `/dashboard?${s}` : "/dashboard";
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; n?: string }>;
+  searchParams: Promise<{ q?: string; sex?: string; blood?: string; page?: string }>;
 }) {
   const doctor = await getSessionDoctor();
   if (!doctor) redirect("/login");
-  const { q, n } = await searchParams;
-  const query = q?.trim() || undefined;
-
-  // "Load more" grows the visible count via ?n=; capped for sanity.
-  const shown = Math.min(Math.max(parseInt(n ?? "", 10) || PAGE_SIZE, PAGE_SIZE), 1000);
+  const sp = await searchParams;
+  const query = sp.q?.trim() || undefined;
+  const sex = sp.sex || undefined;
+  const bloodGroup = sp.blood || undefined;
+  const page = Math.max(parseInt(sp.page ?? "1", 10) || 1, 1);
+  const filtersActive = !!(query || sex || bloodGroup);
 
   const { patients, total } = await searchPatients(webAuth(doctor), {
     q: query,
-    limit: shown,
-    offset: 0,
+    sex,
+    bloodGroup,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
   });
-  const hasMore = !query && total > patients.length;
 
-  // First-run empty state (no patients at all, not just an empty search).
-  if (!query && total === 0) {
+  const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
+  const base = { q: query, sex, blood: bloodGroup };
+
+  // First-run empty state — no patients at all and no active filter.
+  if (!filtersActive && total === 0) {
     return (
       <div className="flex flex-col gap-4 pb-24">
         <Card className="flex flex-col items-center gap-3 p-8 text-center">
@@ -62,30 +80,68 @@ export default async function DashboardPage({
 
   return (
     <div className="flex flex-col gap-4 pb-24">
-      <form className="flex gap-2" action="/dashboard" method="get">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            name="q"
-            defaultValue={q ?? ""}
-            placeholder="Search patients by name or phone"
-            className="pl-9"
-            autoComplete="off"
-          />
+      {/* Search + filters — one GET form so they apply together; page resets to 1. */}
+      <form className="flex flex-col gap-2" action="/dashboard" method="get">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              name="q"
+              defaultValue={sp.q ?? ""}
+              placeholder="Search by name or phone"
+              className="pl-9 pr-9"
+              autoComplete="off"
+            />
+            {query && (
+              <Link
+                href={href({ sex, blood: bloodGroup })}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <X className="size-4" />
+              </Link>
+            )}
+          </div>
+          <Button type="submit" variant="secondary">
+            Search
+          </Button>
         </div>
-        <Button type="submit" variant="secondary">
-          Search
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <select name="sex" defaultValue={sex ?? ""} className={selectClass}>
+            <option value="">Any sex</option>
+            <option value="MALE">Male</option>
+            <option value="FEMALE">Female</option>
+            <option value="OTHER">Other</option>
+          </select>
+          <select name="blood" defaultValue={bloodGroup ?? ""} className={selectClass}>
+            <option value="">Any blood group</option>
+            {BLOOD_GROUPS.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
+          <Button type="submit" variant="outline" size="sm">
+            Apply filters
+          </Button>
+          {filtersActive && (
+            <Link href="/dashboard" className="text-xs text-muted-foreground hover:text-foreground">
+              Clear all
+            </Link>
+          )}
+        </div>
       </form>
 
       <p className="px-1 text-xs text-muted-foreground">
-        {query ? `${total} result${total === 1 ? "" : "s"} for "${query}"` : `${total} patients`}
+        {total} {total === 1 ? "patient" : "patients"}
+        {filtersActive ? " matching" : ""}
+        {totalPages > 1 ? ` · page ${page} of ${totalPages}` : ""}
       </p>
 
       <div className="flex flex-col gap-2">
         {patients.length === 0 && (
           <Card className="p-6 text-center text-sm text-muted-foreground">
-            No patients found{query ? ` for "${query}"` : ""}.
+            No patients match your search or filters.
           </Card>
         )}
         {patients.map((p) => (
@@ -99,6 +155,7 @@ export default async function DashboardPage({
                     {ageFrom(p.dateOfBirth, p.dobApproximate)}
                   </span>
                   {p.phone && <span>{p.phone}</span>}
+                  {p.bloodGroup && <Badge variant="outline">{p.bloodGroup}</Badge>}
                   {p.chronicConditions.slice(0, 2).map((c) => (
                     <Badge key={c} variant="secondary">
                       {c}
@@ -112,10 +169,30 @@ export default async function DashboardPage({
         ))}
       </div>
 
-      {hasMore && (
-        <Link href={`/dashboard?n=${shown + PAGE_SIZE}`} className="mx-auto">
-          <Button variant="outline">Load more ({total - patients.length} more)</Button>
-        </Link>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          {page > 1 ? (
+            <Link href={href({ ...base, page: page - 1 })}>
+              <Button variant="outline" size="sm">
+                <ChevronLeft /> Prev
+              </Button>
+            </Link>
+          ) : (
+            <span />
+          )}
+          <span className="text-xs text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link href={href({ ...base, page: page + 1 })}>
+              <Button variant="outline" size="sm">
+                Next <ChevronRight />
+              </Button>
+            </Link>
+          ) : (
+            <span />
+          )}
+        </div>
       )}
 
       {/* Floating action button — anchored to the content column, thumb-reachable. */}

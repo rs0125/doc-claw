@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { AttachmentStrip } from "@/components/attachment-strip";
+import { AttachmentThumb } from "@/components/attachment-thumb";
 import { ConfirmButton } from "@/components/confirm-button";
 import { getSessionDoctor, webAuth } from "@/lib/web-auth";
 import { ApiError } from "@/lib/http";
@@ -56,8 +57,33 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
     listSummaries(auth, id),
     listAttachments(auth, id),
   ]);
-  const rxPhotos = attachments.filter((a) => a.kind === "PRESCRIPTION");
-  const summaryPhotos = attachments.filter((a) => a.kind === "DISCHARGE_SUMMARY");
+  // Group attachments by the specific record they supplement. Ones with no
+  // record link (e.g. uploaded via the Telegram bot) are surfaced per-kind so
+  // they're never orphaned.
+  const photosByPrescription = new Map<string, typeof attachments>();
+  const photosBySummary = new Map<string, typeof attachments>();
+  const unlinked = { PRESCRIPTION: [] as typeof attachments, DISCHARGE_SUMMARY: [] as typeof attachments };
+  for (const a of attachments) {
+    if (a.prescriptionId) {
+      (photosByPrescription.get(a.prescriptionId) ?? photosByPrescription.set(a.prescriptionId, []).get(a.prescriptionId)!).push(a);
+    } else if (a.dischargeSummaryId) {
+      (photosBySummary.get(a.dischargeSummaryId) ?? photosBySummary.set(a.dischargeSummaryId, []).get(a.dischargeSummaryId)!).push(a);
+    } else if (a.kind === "PRESCRIPTION" || a.kind === "DISCHARGE_SUMMARY") {
+      unlinked[a.kind].push(a);
+    }
+  }
+
+  const unlinkedFooter = (items: typeof attachments) =>
+    items.length === 0 ? undefined : (
+      <div className="mt-1 flex flex-col gap-2 rounded-lg border border-dashed p-3">
+        <span className="text-xs text-muted-foreground">Uploaded via Telegram (not linked to an entry)</span>
+        <div className="grid grid-cols-5 gap-2 sm:grid-cols-6">
+          {items.map((att) => (
+            <AttachmentThumb key={att.id} id={att.id} contentType={att.contentType} fileName={att.fileName} />
+          ))}
+        </div>
+      </div>
+    );
 
   const facts: { label: string; value: string }[] = [
     { label: "Age", value: ageFrom(patient.dateOfBirth, patient.dobApproximate) ?? "—" },
@@ -145,7 +171,7 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
         title="Prescriptions"
         count={prescriptions.length}
         addHref={`/dashboard/patients/${id}/prescription/new`}
-        footer={<AttachmentStrip patientId={id} kind="PRESCRIPTION" items={rxPhotos} />}
+        footer={unlinkedFooter(unlinked.PRESCRIPTION)}
       >
         {prescriptions.map((rx) => (
           <Card key={rx.id} className="p-4">
@@ -187,6 +213,12 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
               ))}
             </ul>
             {rx.advice && <p className="mt-2 text-xs text-muted-foreground">{rx.advice}</p>}
+            <AttachmentStrip
+              patientId={id}
+              kind="PRESCRIPTION"
+              prescriptionId={rx.id}
+              items={photosByPrescription.get(rx.id) ?? []}
+            />
           </Card>
         ))}
       </Section>
@@ -197,7 +229,7 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
         title="Discharge summaries"
         count={summaries.length}
         addHref={`/dashboard/patients/${id}/summary/new`}
-        footer={<AttachmentStrip patientId={id} kind="DISCHARGE_SUMMARY" items={summaryPhotos} />}
+        footer={unlinkedFooter(unlinked.DISCHARGE_SUMMARY)}
       >
         {summaries.map((s) => (
           <Card key={s.id} className="p-4">
@@ -252,6 +284,12 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
                 confirmLabel="Delete summary"
               />
             </div>
+            <AttachmentStrip
+              patientId={id}
+              kind="DISCHARGE_SUMMARY"
+              dischargeSummaryId={s.id}
+              items={photosBySummary.get(s.id) ?? []}
+            />
           </Card>
         ))}
       </Section>

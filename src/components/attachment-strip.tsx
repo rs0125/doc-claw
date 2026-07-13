@@ -2,26 +2,43 @@ import type { Attachment, AttachmentKind } from "@/generated/prisma/client";
 import { AttachmentUpload } from "@/components/forms/attachment-upload";
 import { AttachmentThumb } from "@/components/attachment-thumb";
 
-/** Photo/scan thumbnails for one record kind, with a fixed-kind upload button. */
+/**
+ * Compact photo/scan row attached to a single record (prescription or discharge
+ * summary). The upload links the file to that record via prescriptionId /
+ * dischargeSummaryId. Rendered inside the record entry as an optional supplement.
+ */
 export function AttachmentStrip({
   patientId,
   kind,
   items,
+  prescriptionId,
+  dischargeSummaryId,
+  label = "Photos",
 }: {
   patientId: string;
   kind: AttachmentKind;
   items: Attachment[];
+  prescriptionId?: string;
+  dischargeSummaryId?: string;
+  label?: string;
 }) {
   return (
-    <div className="mt-1 flex flex-col gap-2 rounded-lg border border-dashed p-3">
+    <div className="mt-2 flex flex-col gap-2 border-t pt-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">
-          Photos &amp; scans {items.length > 0 && `(${items.length})`}
+        <span className="text-xs text-muted-foreground">
+          {label}
+          {items.length > 0 ? ` (${items.length})` : ""}
         </span>
-        <AttachmentUpload patientId={patientId} kind={kind} />
+        <AttachmentUpload
+          patientId={patientId}
+          kind={kind}
+          prescriptionId={prescriptionId}
+          dischargeSummaryId={dischargeSummaryId}
+          compact
+        />
       </div>
       {items.length > 0 && (
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+        <div className="grid grid-cols-5 gap-2 sm:grid-cols-6">
           {items.map((att) => (
             <AttachmentThumb
               key={att.id}

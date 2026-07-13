@@ -8,13 +8,21 @@ import { Button } from "@/components/ui/button";
 type Kind = "PRESCRIPTION" | "DISCHARGE_SUMMARY" | "LAB_REPORT" | "OTHER";
 
 /** Uploads an image/PDF straight to R2 via a presigned PUT, then confirms.
- * With a fixed `kind` the type selector is hidden (used inside a record section). */
+ * With a fixed `kind` the type selector is hidden. An optional prescriptionId /
+ * dischargeSummaryId links the file to that specific record. `compact` shows just
+ * a small "Add photo" button (used inside a record entry). */
 export function AttachmentUpload({
   patientId,
   kind: fixedKind,
+  prescriptionId,
+  dischargeSummaryId,
+  compact,
 }: {
   patientId: string;
   kind?: Kind;
+  prescriptionId?: string;
+  dischargeSummaryId?: string;
+  compact?: boolean;
 }) {
   const [kind, setKind] = useState<Kind>(fixedKind ?? "PRESCRIPTION");
   const [busy, setBusy] = useState(false);
@@ -34,6 +42,8 @@ export function AttachmentUpload({
           kind,
           contentType: file.type,
           fileName: file.name,
+          prescriptionId,
+          dischargeSummaryId,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Could not start upload");
@@ -74,13 +84,14 @@ export function AttachmentUpload({
         )}
         <Button
           type="button"
-          variant="outline"
+          variant={compact ? "ghost" : "outline"}
           size="sm"
           disabled={busy}
           onClick={() => inputRef.current?.click()}
+          className={compact ? "h-7 px-2 text-xs text-muted-foreground" : ""}
         >
           {busy ? <Loader2 className="animate-spin" /> : <ImagePlus />}
-          {busy ? "Uploading…" : "Upload photo"}
+          {busy ? "Uploading…" : compact ? "Add photo" : "Upload photo"}
         </Button>
       </div>
       <input
