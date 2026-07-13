@@ -31,6 +31,7 @@ model Doctor {
   loginTokens          LoginToken[]
   webSessions          WebSession[]
   attachments          Attachment[]
+  passwordResetTokens  PasswordResetToken[]
 }
 
 model ApiToken {
@@ -281,6 +282,21 @@ model WebSession {
   expiresAt   DateTime
   revokedAt   DateTime?
   createdAt   DateTime  @default(now())
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+}
+
+// One-time password-reset token, delivered to the doctor's linked Telegram.
+// Only the sha256 hash is stored; consumed once, within a short window.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  doctorId  String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 
