@@ -1,29 +1,86 @@
-# doctor-openclaw
+# Kordex Health
 
-API backend for a patient-management assistant for Indian doctors. Doctors interact
-through a chat agent (Telegram); this service is the system of record.
+**Patient records for Indian doctors — as easy as texting.**
 
-**Stack:** Next.js (App Router, API-only) on Vercel · Supabase Postgres via Prisma · Cloudflare R2 for documents.
+Kordex Health is a lightweight system of record for solo practitioners and small
+clinics. Doctors manage patients, visits, prescriptions, and discharge summaries
+from a mobile-first web dashboard — or by simply messaging a Telegram bot in
+plain language ("add a visit for Ramesh, fever 2 days, gave paracetamol").
+Either way, the data lands in the same audited, doctor-scoped record.
 
-## Design notes
+**Web dashboard · Telegram assistant · REST API** — one system of record behind all three.
 
-- **All authorization lives here, not in the agent.** Every request needs
+## Screenshots
+
+| Sign in | Dashboard | Patient record |
+| --- | --- | --- |
+| ![Login](docs/screenshots/login.png) | ![Dashboard](docs/screenshots/dashboard.png) | ![Patient record](docs/screenshots/patient.png) |
+
+## What it does
+
+- **Patients** — demographics, blood group, allergies, chronic conditions,
+  ABHA ID. Fuzzy search by name or phone, filters, pagination.
+- **Visits (encounters)** — complaint, examination, vitals, diagnosis, plan.
+- **Prescriptions** — structured medication rows (dose / frequency / duration),
+  rendered to PDF on demand and served via short-lived signed URLs.
+- **Discharge summaries** — built from structured fields (never freehand LLM
+  text), draft → finalize workflow; finalized summaries are immutable.
+- **Photos & scans** — attach prescription/report photos per record from the
+  web, or just send a photo to the Telegram bot; files live in R2.
+- **Telegram assistant** — `/find`, `/add`, `/visit`, `/prescribe`, `/summary`,
+  or free-form messages (including Hinglish). Every write is confirmed by the
+  doctor before it lands. Photos sent to the bot are stored against the patient;
+  the bot can send stored photos and PDFs back.
+- **Audit trail** — every read and write on a doctor's records is logged and
+  visible in the dashboard's Activity page.
+- **Self-service account** — password change, Telegram link/unlink, and
+  password reset via the linked Telegram chat (no email required).
+
+Built mobile-first: the dashboard is designed for a phone in a clinic — 40px+
+tap targets, bottom-sheet dialogs, thumb-reachable actions.
+
+## Architecture
+
+**Stack:** Next.js (App Router) on Vercel · Supabase Postgres via Prisma · Cloudflare R2 for documents · OpenAI tool-calling agent for the Telegram assistant.
+
+- **All authorization lives in the service, not the agent.** API requests need
   `Authorization: Bearer dct_...`; every query is scoped to the token's doctor.
-  Tokens are stored as sha256 hashes only.
-- **Every access is audited** — writes atomically (same transaction), reads best-effort.
-  See `GET /api/audit-logs`.
-- **Discharge summaries are generated from structured data** (never freehand LLM text),
-  rendered to PDF in R2, and served only via short-lived signed URLs.
-- Finalized summaries (`status: FINAL`) become immutable.
+  Tokens are stored as sha256 hashes only. Web sessions use the same
+  doctor-scoped services.
+- **The agent cannot self-confirm writes.** Telegram writes go through a
+  `PendingAction`: the agent proposes, the doctor sees the exact payload, and
+  confirmation is only accepted from a *later* message.
+- **Every access is audited** — writes atomically (same transaction), reads
+  best-effort.
 
-## Setup
+## Getting started
 
 1. Create a Supabase project (prefer an Indian region, e.g. `ap-south-1`) and an R2 bucket.
 2. `cp .env.example .env` and fill in values.
 3. `npx prisma migrate dev --name init`
-4. Provision a doctor + token:
-   `npm run create-doctor -- --name "Dr. A Sharma" --email a@example.com`
-5. `npm run dev`
+4. Provision a doctor, a web password, and their first API token:
+   ```bash
+   npm run create-doctor -- --name "Dr. A Sharma" --email a@example.com
+   npm run set-password -- --email a@example.com --password "********"
+   ```
+5. `npm run dev` and sign in at `http://localhost:3000`.
+
+### Telegram bot
+
+Set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, and `TELEGRAM_WEBHOOK_SECRET`,
+then register the webhook and command menu:
+
+```bash
+npm run telegram-setup -- --url https://<your-deployment>
+```
+
+> **Re-run this after every deployment-URL change** — the webhook does not
+> follow the deployment, and the bot silently stops responding if it points at
+> a dead URL.
+
+Doctors link their chat from **Account → Connect Telegram** (a one-time code,
+valid 48 hours from the moment it's generated). Local testing without Telegram:
+`npm run agent -- --email <doctor> "message"`.
 
 ## API
 
@@ -31,61 +88,36 @@ All routes require `Authorization: Bearer <token>`. Dates are `YYYY-MM-DD`.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| GET | `/api/patients?q=&limit=&offset=` | Search own patients by name/phone |
+| GET | `/api/patients?q=&sex=&bloodGroup=&limit=&offset=` | Search own patients |
 | POST | `/api/patients` | Create patient |
-| GET | `/api/patients/:id` | Patient details |
-| PATCH | `/api/patients/:id` | Update patient |
-| GET | `/api/patients/:id/discharge-summaries` | List summaries for a patient |
-| POST | `/api/patients/:id/discharge-summaries` | Create summary (DRAFT) |
-| GET | `/api/discharge-summaries/:id` | Summary details |
-| PATCH | `/api/discharge-summaries/:id` | Update / finalize (`{"status": "FINAL"}`) |
-| GET | `/api/discharge-summaries/:id/document` | Signed PDF URL (renders on demand) |
-| GET/POST | `/api/patients/:id/encounters` | Visits: list / record |
-| GET/PATCH | `/api/encounters/:id` | Encounter details / update |
-| GET/POST | `/api/patients/:id/prescriptions` | Prescriptions: list / create |
+| GET / PATCH | `/api/patients/:id` | Patient details / update |
+| GET / POST | `/api/patients/:id/encounters` | Visits: list / record |
+| GET / PATCH | `/api/encounters/:id` | Visit details / update |
+| GET / POST | `/api/patients/:id/prescriptions` | Prescriptions: list / create |
 | GET | `/api/prescriptions/:id` | Prescription details |
 | GET | `/api/prescriptions/:id/document` | Signed PDF URL (renders on demand) |
+| GET / POST | `/api/patients/:id/discharge-summaries` | Summaries: list / create (DRAFT) |
+| GET / PATCH | `/api/discharge-summaries/:id` | Summary details / update / finalize |
+| GET | `/api/discharge-summaries/:id/document` | Signed PDF URL |
+| POST | `/api/attachments` → PUT → `/api/attachments/:id/complete` | Direct-to-R2 photo upload |
 | GET | `/api/audit-logs?limit=&offset=` | Own audit trail |
-| POST | `/api/telegram/webhook` | Telegram bot webhook (secret-token gated) |
+| POST | `/api/telegram/webhook` | Telegram webhook (secret-token gated) |
 
-`POST` create endpoints accept an `Idempotency-Key` header: a retry with the same
-key replays the stored response instead of creating a duplicate.
-
-Example:
-
-```bash
-curl -s localhost:3000/api/patients \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name":"Ramesh Kumar","dateOfBirth":"1961-03-14","sex":"MALE","phone":"+919800000000","allergies":["penicillin"]}'
-```
-
-## Telegram agent
-
-The agent (OpenAI tool-calling loop, `src/lib/agent/`) is multi-tenant by
-construction: a Telegram chat maps to one doctor via `TelegramLink`, and every
-tool call runs through the same doctor-scoped services as the HTTP API.
-
-- **Confirm-before-write is enforced server-side.** Writes go through a
-  `PendingAction`: the agent proposes, the doctor sees the exact payload, and
-  `confirm_action` is rejected unless the confirmation arrives in a message
-  *after* the proposal (so the model can never propose and self-confirm in one turn).
-- Linking: `create-doctor` prints a one-time code; the doctor sends `/link <code>` to the bot.
-- Setup: set `TELEGRAM_BOT_TOKEN` + `TELEGRAM_WEBHOOK_SECRET`, then
-  `curl "https://api.telegram.org/bot<token>/setWebhook?url=<base>/api/telegram/webhook&secret_token=<secret>"`.
-- Local testing without Telegram: `npm run agent -- --email <doctor> "message"`.
+`POST` create endpoints accept an `Idempotency-Key` header: a retry with the
+same key replays the stored response instead of creating a duplicate.
 
 ## Tests
 
-- `npm test` — vitest unit tests (`tests/`) covering validation schemas, token
-  hashing, error mapping, PDF rendering, and pending-action confirm gating.
-- `npm run eval` — non-deterministic agent evals (`scripts/agent-eval.ts`):
-  drives real conversations (Hinglish shorthand, typos, prompt injection,
-  cross-tenant probes, ambiguous names, missing doses…) through the live
-  OpenAI API against a throwaway doctor, then asserts on database state and
-  judges reply quality with an LLM. `npm run eval -- --only <scenario>` runs one.
+- `npm test` — vitest unit tests (`tests/`): validation schemas, token hashing,
+  error mapping, PDF rendering, pending-action confirm gating.
+- `npm run eval` — agent evals (`scripts/agent-eval.ts`): drives real
+  conversations (Hinglish shorthand, typos, prompt injection, cross-tenant
+  probes, ambiguous names…) through the live OpenAI API against a throwaway
+  doctor, then asserts on database state and judges reply quality with an LLM.
+- A separate Playwright suite (mobile-viewport layout audits: tap-target sizes,
+  element overlaps, horizontal scroll) lives in the `doctor-openclaw-e2e` repo.
 
 ## Roadmap
 
-- R2 media attachments (lab reports/scans via Telegram photos)
 - Summary amendments (versioned corrections instead of edit-FINAL)
-- V2: per-doctor agent config (custom prompts/tools, external system adapters)
+- Per-doctor agent config (custom prompts/tools, external system adapters)
