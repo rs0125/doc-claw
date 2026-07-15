@@ -27,6 +27,13 @@ const ACTION_LABEL: Record<string, string> = {
   "surgery.finalize": "Finalized surgery record",
   "surgery.archive": "Deleted surgery record",
   "surgery.document.download": "Downloaded surgery PDF",
+  // Legacy codes from before the discharge-summary → surgery rename. Audit rows
+  // are immutable history, so old codes are mapped at display time instead.
+  "summary.create": "Created surgery record",
+  "summary.update": "Updated surgery record",
+  "summary.finalize": "Finalized surgery record",
+  "summary.archive": "Deleted surgery record",
+  "summary.document.download": "Downloaded surgery PDF",
   "attachment.create": "Uploaded a file",
   "attachment.delete": "Deleted a file",
   "attachment.download": "Viewed a file",

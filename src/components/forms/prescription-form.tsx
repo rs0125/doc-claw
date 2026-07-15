@@ -25,6 +25,7 @@ export function PrescriptionForm({
   submitLabel?: string;
 }) {
   const [state, formAction] = useActionState(action, {});
+  const v = state.values;
   const dateVal = prescription ? prescription.date.toISOString().slice(0, 10) : today;
   const followUp = prescription?.followUpDate
     ? prescription.followUpDate.toISOString().slice(0, 10)
@@ -34,14 +35,14 @@ export function PrescriptionForm({
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <Field label="Date" htmlFor="date" required>
-        <Input id="date" name="date" type="date" defaultValue={dateVal} required />
+        <Input id="date" name="date" type="date" defaultValue={v?.date ?? dateVal} required />
       </Field>
       <MedicationFields required initial={meds} />
       <Field label="Advice" htmlFor="advice">
-        <Textarea id="advice" name="advice" defaultValue={prescription?.advice ?? ""} placeholder="Rest, fluids…" />
+        <Textarea id="advice" name="advice" defaultValue={v?.advice ?? prescription?.advice ?? ""} placeholder="Rest, fluids…" />
       </Field>
       <Field label="Follow-up date" htmlFor="followUpDate">
-        <Input id="followUpDate" name="followUpDate" type="date" defaultValue={followUp} />
+        <Input id="followUpDate" name="followUpDate" type="date" defaultValue={v?.followUpDate ?? followUp} />
       </Field>
       <FormError error={state.error} />
       <SubmitButton>{submitLabel}</SubmitButton>

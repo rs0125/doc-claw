@@ -26,7 +26,20 @@ import {
 import { archiveSurgery, createSurgery, updateSurgery } from "@/services/surgeries";
 
 const VIA = "web";
-export type FormState = { error?: string; duplicate?: string };
+export type FormState = {
+  error?: string;
+  duplicate?: string;
+  // Raw submitted values, echoed back on failure so the form can repopulate
+  // instead of being wiped by React 19's post-action form reset.
+  values?: Record<string, string>;
+};
+
+// Every string field the form submitted, keyed by name — safe to echo back.
+function rawValues(fd: FormData): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of fd.entries()) if (typeof v === "string") out[k] = v;
+  return out;
+}
 
 async function auth() {
   const doctor = await getSessionDoctor();
@@ -84,13 +97,14 @@ export async function createPatientAction(
       if (dup) {
         return {
           duplicate: `A patient named "${dup.name}"${dup.phone ? ` (${dup.phone})` : ""} already exists. Add anyway?`,
+          values: rawValues(fd),
         };
       }
     }
     const patient = await createPatient(a, data, VIA);
     id = patient.id;
   } catch (err) {
-    return { error: firstIssue(err) };
+    return { error: firstIssue(err), values: rawValues(fd) };
   }
   revalidatePath("/dashboard");
   redirect(`/dashboard/patients/${id}`);
@@ -113,7 +127,7 @@ export async function updatePatientAction(
     const data = patientUpdateSchema.parse(patientPayload(fd));
     await updatePatient(a, patientId, data, VIA);
   } catch (err) {
-    return { error: firstIssue(err) };
+    return { error: firstIssue(err), values: rawValues(fd) };
   }
   revalidatePath(`/dashboard/patients/${patientId}`);
   redirect(`/dashboard/patients/${patientId}`);
@@ -142,7 +156,7 @@ export async function addEncounterAction(
     });
     await createEncounter(a, patientId, data, VIA);
   } catch (err) {
-    return { error: firstIssue(err) };
+    return { error: firstIssue(err), values: rawValues(fd) };
   }
   revalidatePath(`/dashboard/patients/${patientId}`);
   redirect(`/dashboard/patients/${patientId}`);
@@ -176,7 +190,7 @@ export async function updateEncounterAction(
     const data = encounterCreateSchema.parse(encounterPayload(fd));
     await updateEncounter(a, encounterId, data, VIA);
   } catch (err) {
-    return { error: firstIssue(err) };
+    return { error: firstIssue(err), values: rawValues(fd) };
   }
   revalidatePath(`/dashboard/patients/${patientId}`);
   redirect(`/dashboard/patients/${patientId}`);
@@ -212,7 +226,7 @@ export async function addPrescriptionAction(
     });
     await createPrescription(a, patientId, data, VIA);
   } catch (err) {
-    return { error: firstIssue(err) };
+    return { error: firstIssue(err), values: rawValues(fd) };
   }
   revalidatePath(`/dashboard/patients/${patientId}`);
   redirect(`/dashboard/patients/${patientId}`);
@@ -234,7 +248,7 @@ export async function updatePrescriptionAction(
     });
     await updatePrescription(a, prescriptionId, data, VIA);
   } catch (err) {
-    return { error: firstIssue(err) };
+    return { error: firstIssue(err), values: rawValues(fd) };
   }
   revalidatePath(`/dashboard/patients/${patientId}`);
   redirect(`/dashboard/patients/${patientId}`);
@@ -273,7 +287,7 @@ export async function createSurgeryAction(
     });
     await createSurgery(a, patientId, data, VIA);
   } catch (err) {
-    return { error: firstIssue(err) };
+    return { error: firstIssue(err), values: rawValues(fd) };
   }
   revalidatePath(`/dashboard/patients/${patientId}`);
   redirect(`/dashboard/patients/${patientId}`);
@@ -301,7 +315,7 @@ export async function updateSurgeryAction(
     });
     await updateSurgery(a, surgeryId, data, VIA);
   } catch (err) {
-    return { error: firstIssue(err) };
+    return { error: firstIssue(err), values: rawValues(fd) };
   }
   revalidatePath(`/dashboard/patients/${patientId}`);
   redirect(`/dashboard/patients/${patientId}`);

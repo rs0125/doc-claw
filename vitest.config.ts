@@ -6,7 +6,7 @@ export default defineConfig({
     alias: { "@": path.resolve(__dirname, "src") },
   },
   test: {
-    include: ["tests/**/*.test.ts"],
-    environment: "node",
+    include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
+    environment: "node", // component tests opt into jsdom via a @vitest-environment docblock
   },
 });

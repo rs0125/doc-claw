@@ -64,7 +64,7 @@ function foldAge<T extends { age?: number; dateOfBirth?: Date }>(
 export const patientCreateSchema = patientBase.transform(foldAge);
 export const patientUpdateSchema = patientBase.partial().transform(foldAge);
 
-export const surgeryCreateSchema = z.object({
+const surgeryBase = z.object({
   admissionDate: isoDate,
   dischargeDate: isoDate,
   diagnosis: z.string().min(1),
@@ -77,9 +77,21 @@ export const surgeryCreateSchema = z.object({
   followUpInstructions: z.string().optional(),
 });
 
-export const surgeryUpdateSchema = surgeryCreateSchema.partial().extend({
-  status: z.enum(["DRAFT", "FINAL"]).optional(),
-});
+// Admission can't be after discharge. Only enforced when both dates are present
+// (an update may touch just one). Anchored to dischargeDate for the error path.
+const datesOrdered = (v: { admissionDate?: Date; dischargeDate?: Date }) =>
+  !v.admissionDate || !v.dischargeDate || v.admissionDate <= v.dischargeDate;
+const datesOrderedIssue = {
+  message: "Discharge date can't be before admission date",
+  path: ["dischargeDate"],
+};
+
+export const surgeryCreateSchema = surgeryBase.refine(datesOrdered, datesOrderedIssue);
+
+export const surgeryUpdateSchema = surgeryBase
+  .partial()
+  .extend({ status: z.enum(["DRAFT", "FINAL"]).optional() })
+  .refine(datesOrdered, datesOrderedIssue);
 
 export const encounterCreateSchema = z.object({
   date: isoDate,

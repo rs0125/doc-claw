@@ -122,6 +122,33 @@ describe("surgery schemas", () => {
     expect(surgeryUpdateSchema.parse({ status: "FINAL" }).status).toBe("FINAL");
     expect(() => surgeryUpdateSchema.parse({ status: "final" })).toThrow();
   });
+
+  it("rejects a discharge date before the admission date", () => {
+    const swapped = { ...base, admissionDate: "2026-07-05", dischargeDate: "2026-07-01" };
+    const result = surgeryCreateSchema.safeParse(swapped);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].path).toEqual(["dischargeDate"]);
+      expect(result.error.issues[0].message).toMatch(/before admission/i);
+    }
+  });
+
+  it("accepts same-day admission and discharge", () => {
+    expect(() =>
+      surgeryCreateSchema.parse({ ...base, admissionDate: "2026-07-01", dischargeDate: "2026-07-01" }),
+    ).not.toThrow();
+  });
+
+  it("enforces date ordering on update when both dates are sent", () => {
+    expect(() =>
+      surgeryUpdateSchema.parse({ admissionDate: "2026-07-05", dischargeDate: "2026-07-01" }),
+    ).toThrow();
+  });
+
+  it("allows updating a single date without the other", () => {
+    expect(() => surgeryUpdateSchema.parse({ dischargeDate: "2026-07-01" })).not.toThrow();
+    expect(() => surgeryUpdateSchema.parse({ admissionDate: "2026-07-05" })).not.toThrow();
+  });
 });
 
 describe("encounterCreateSchema", () => {

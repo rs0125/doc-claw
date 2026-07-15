@@ -29,6 +29,8 @@ export function PatientForm({
   submitLabel: string;
 }) {
   const [state, formAction] = useActionState(action, {});
+  // On a failed submit, prefer what the doctor just typed over the saved record.
+  const v = state.values;
   // An approximate DOB is synthetic (derived from an age), so the edit form
   // round-trips it as an age instead of presenting it as an exact date.
   const exactDob =
@@ -45,7 +47,7 @@ export function PatientForm({
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <Field label="Name" htmlFor="name" required>
-        <Input id="name" name="name" defaultValue={patient?.name} required />
+        <Input id="name" name="name" defaultValue={v?.name ?? patient?.name} required />
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Date of birth" htmlFor="dateOfBirth" hint="Use if exact date is known">
@@ -81,7 +83,7 @@ export function PatientForm({
           <select
             id="sex"
             name="sex"
-            defaultValue={patient?.sex ?? "UNKNOWN"}
+            defaultValue={v?.sex ?? patient?.sex ?? "UNKNOWN"}
             className="flex h-10 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="UNKNOWN">—</option>
@@ -91,22 +93,22 @@ export function PatientForm({
           </select>
         </Field>
         <Field label="Blood group" htmlFor="bloodGroup">
-          <Input id="bloodGroup" name="bloodGroup" defaultValue={patient?.bloodGroup ?? ""} />
+          <Input id="bloodGroup" name="bloodGroup" defaultValue={v?.bloodGroup ?? patient?.bloodGroup ?? ""} />
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Phone" htmlFor="phone">
-          <Input id="phone" name="phone" defaultValue={patient?.phone ?? ""} />
+          <Input id="phone" name="phone" defaultValue={v?.phone ?? patient?.phone ?? ""} />
         </Field>
         <Field label="ABHA ID" htmlFor="abhaId">
-          <Input id="abhaId" name="abhaId" defaultValue={patient?.abhaId ?? ""} />
+          <Input id="abhaId" name="abhaId" defaultValue={v?.abhaId ?? patient?.abhaId ?? ""} />
         </Field>
       </div>
       <Field label="Allergies" htmlFor="allergies" hint="Comma-separated">
         <Input
           id="allergies"
           name="allergies"
-          defaultValue={patient?.allergies.join(", ")}
+          defaultValue={v?.allergies ?? patient?.allergies.join(", ")}
           placeholder="penicillin, sulfa"
         />
       </Field>
@@ -114,12 +116,12 @@ export function PatientForm({
         <Input
           id="chronicConditions"
           name="chronicConditions"
-          defaultValue={patient?.chronicConditions.join(", ")}
+          defaultValue={v?.chronicConditions ?? patient?.chronicConditions.join(", ")}
           placeholder="Type 2 diabetes, Hypertension"
         />
       </Field>
       <Field label="Notes" htmlFor="notes">
-        <Textarea id="notes" name="notes" defaultValue={patient?.notes ?? ""} />
+        <Textarea id="notes" name="notes" defaultValue={v?.notes ?? patient?.notes ?? ""} />
       </Field>
       <FormError error={state.error} />
       {state.duplicate ? (
