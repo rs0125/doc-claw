@@ -12,7 +12,7 @@ import {
 import { createEncounter } from "@/services/encounters";
 import { assertOwnedPatient, createPatient, updatePatient } from "@/services/patients";
 import { createPrescription } from "@/services/prescriptions";
-import { createSurgery, updateSurgery } from "@/services/surgeries";
+import { createSurgery } from "@/services/surgeries";
 
 const VIA = "telegram-agent";
 
@@ -29,7 +29,6 @@ const actionSchemas = {
   "encounter.create": z.object({ patientId: z.string(), data: encounterCreateSchema }),
   "prescription.create": z.object({ patientId: z.string(), data: prescriptionCreateSchema }),
   "surgery.create": z.object({ patientId: z.string(), data: surgeryCreateSchema }),
-  "surgery.finalize": z.object({ surgeryId: z.string() }),
 } as const;
 
 export type PendingActionType = keyof typeof actionSchemas;
@@ -192,10 +191,6 @@ async function executeAction(auth: AuthContext, type: string, payload: unknown) 
     case "surgery.create": {
       const { patientId, data } = actionSchemas[type].parse(payload);
       return { surgery: await createSurgery(auth, patientId, data, VIA) };
-    }
-    case "surgery.finalize": {
-      const { surgeryId } = actionSchemas[type].parse(payload);
-      return { surgery: await updateSurgery(auth, surgeryId, { status: "FINAL" }, VIA) };
     }
   }
 }

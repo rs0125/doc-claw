@@ -24,9 +24,6 @@ export default async function EditSurgeryPage({
     if (err instanceof ApiError && err.status === 404) notFound();
     throw err;
   }
-  // A finalized surgery is immutable — no edit screen.
-  if (surgery.status === "FINAL") redirect(`/dashboard/patients/${id}`);
-
   const action = updateSurgeryAction.bind(null, id, surgeryId);
   return (
     <FormPage title="Edit surgery" backHref={`/dashboard/patients/${id}`} backLabel="Back to patient">

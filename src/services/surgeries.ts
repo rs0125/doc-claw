@@ -78,10 +78,7 @@ export async function updateSurgery(
   data: SurgeryUpdate,
   via?: string,
 ) {
-  const existing = await assertOwnedSurgery(auth, surgeryId);
-  if (existing.status === "FINAL") {
-    throw new ApiError(409, "Surgery is finalized and can no longer be edited");
-  }
+  await assertOwnedSurgery(auth, surgeryId);
   if (Object.keys(data).length === 0) throw new ApiError(400, "Empty update");
 
   return prisma.$transaction(async (tx) => {
@@ -89,7 +86,7 @@ export async function updateSurgery(
     await audit(
       auth,
       {
-        action: data.status === "FINAL" ? "surgery.finalize" : "surgery.update",
+        action: "surgery.update",
         resourceType: "Surgery",
         resourceId: surgeryId,
         details: { changedFields: Object.keys(data), ...(via ? { via } : {}) },

@@ -164,16 +164,10 @@ model Prescription {
   @@index([doctorId])
 }
 
-enum SurgeryStatus {
-  DRAFT
-  FINAL
-}
-
 model Surgery {
   id                      String        @id @default(cuid())
   doctorId                String
   patientId               String
-  status                  SurgeryStatus @default(DRAFT)
   admissionDate           DateTime      @db.Date
   dischargeDate           DateTime      @db.Date
   diagnosis               String

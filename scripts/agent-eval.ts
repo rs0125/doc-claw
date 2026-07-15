@@ -422,7 +422,6 @@ const scenarios: Scenario[] = [
           if (!/pneumonia/i.test(surgery.diagnosis)) {
             failures.push(`diagnosis missing pneumonia: ${surgery.diagnosis}`);
           }
-          if (surgery.status !== "DRAFT") failures.push("surgery not created as DRAFT");
           if (!/cefixime/i.test(JSON.stringify(surgery.medicationsAtDischarge))) {
             failures.push("discharge medication missing cefixime");
           }
@@ -693,7 +692,7 @@ const scenarios: Scenario[] = [
     ],
   },
   {
-    name: "finalize-flow",
+    name: "surgery-one-shot",
     seed: async (ctx) => {
       await seedPatient(ctx.doctor.id, { name: "Ramesh Kumar" });
     },
@@ -708,27 +707,7 @@ const scenarios: Scenario[] = [
           const surgery = await prisma.surgery.findFirst({
             where: { doctorId: ctx.doctor.id },
           });
-          if (!surgery) return ["surgery not created after confirmation"];
-          return surgery.status === "DRAFT" ? [] : ["surgery should start as DRAFT"];
-        },
-      },
-      {
-        user: "looks good, finalize it",
-        check: async (reply) => {
-          const j = await judge(
-            reply,
-            "Proposes finalizing the surgery (making it immutable) and asks for confirmation.",
-          );
-          return j ? [j] : [];
-        },
-      },
-      {
-        user: "yes finalize",
-        check: async (_reply, ctx) => {
-          const surgery = await prisma.surgery.findFirst({
-            where: { doctorId: ctx.doctor.id },
-          });
-          return surgery?.status === "FINAL" ? [] : ["surgery not FINAL after confirmation"];
+          return surgery ? [] : ["surgery not created after confirmation"];
         },
       },
     ],

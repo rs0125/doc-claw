@@ -19,7 +19,7 @@ export function SurgeryForm({
   action,
   today,
   surgery,
-  submitLabel = "Save draft surgery",
+  submitLabel = "Save surgery",
 }: {
   action: Action;
   today: string;

@@ -88,10 +88,7 @@ const datesOrderedIssue = {
 
 export const surgeryCreateSchema = surgeryBase.refine(datesOrdered, datesOrderedIssue);
 
-export const surgeryUpdateSchema = surgeryBase
-  .partial()
-  .extend({ status: z.enum(["DRAFT", "FINAL"]).optional() })
-  .refine(datesOrdered, datesOrderedIssue);
+export const surgeryUpdateSchema = surgeryBase.partial().refine(datesOrdered, datesOrderedIssue);
 
 export const encounterCreateSchema = z.object({
   date: isoDate,

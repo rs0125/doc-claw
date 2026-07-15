@@ -24,7 +24,7 @@ Either way, the data lands in the same audited, doctor-scoped record.
 - **Prescriptions** — structured medication rows (dose / frequency / duration),
   rendered to PDF on demand and served via short-lived signed URLs.
 - **Surgeries** — built from structured fields (never freehand LLM
-  text), draft → finalize workflow; finalized surgeries are immutable.
+  text), rendered to PDF on demand.
 - **Photos & scans** — attach prescription/report photos per record from the
   web, or just send a photo to the Telegram bot; files live in R2.
 - **Telegram assistant** — `/find`, `/add`, `/visit`, `/prescribe`, `/surgery`,
@@ -96,8 +96,8 @@ All routes require `Authorization: Bearer <token>`. Dates are `YYYY-MM-DD`.
 | GET / POST | `/api/patients/:id/prescriptions` | Prescriptions: list / create |
 | GET | `/api/prescriptions/:id` | Prescription details |
 | GET | `/api/prescriptions/:id/document` | Signed PDF URL (renders on demand) |
-| GET / POST | `/api/patients/:id/surgeries` | Surgeries: list / create (DRAFT) |
-| GET / PATCH | `/api/surgeries/:id` | Surgery details / update / finalize |
+| GET / POST | `/api/patients/:id/surgeries` | Surgeries: list / create |
+| GET / PATCH | `/api/surgeries/:id` | Surgery details / update |
 | GET | `/api/surgeries/:id/document` | Signed PDF URL |
 | POST | `/api/attachments` → PUT → `/api/attachments/:id/complete` | Direct-to-R2 photo upload |
 | GET | `/api/audit-logs?limit=&offset=` | Own audit trail |

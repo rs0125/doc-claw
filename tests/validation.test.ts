@@ -118,11 +118,6 @@ describe("surgery schemas", () => {
     expect(() => surgeryCreateSchema.parse({ ...base, hospitalCourse: "" })).toThrow();
   });
 
-  it("only allows DRAFT/FINAL statuses on update", () => {
-    expect(surgeryUpdateSchema.parse({ status: "FINAL" }).status).toBe("FINAL");
-    expect(() => surgeryUpdateSchema.parse({ status: "final" })).toThrow();
-  });
-
   it("rejects a discharge date before the admission date", () => {
     const swapped = { ...base, admissionDate: "2026-07-05", dischargeDate: "2026-07-01" };
     const result = surgeryCreateSchema.safeParse(swapped);

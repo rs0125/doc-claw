@@ -321,8 +321,3 @@ export async function updateSurgeryAction(
   redirect(`/dashboard/patients/${patientId}`);
 }
 
-export async function finalizeSurgeryAction(surgeryId: string, patientId: string) {
-  const a = await auth();
-  await updateSurgery(a, surgeryId, { status: "FINAL" }, VIA);
-  revalidatePath(`/dashboard/patients/${patientId}`);
-}

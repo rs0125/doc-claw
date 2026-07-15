@@ -21,7 +21,6 @@ const SECTIONS: { title: string; items: string[] }[] = [
     items: [
       "Each section (Prescriptions, Surgeries, Visits) has an Add button.",
       "Prescriptions and surgeries can be downloaded as a PDF.",
-      "A draft surgery can be Finalized — after that it can't be edited.",
     ],
   },
   {

@@ -18,7 +18,7 @@ const patient = {
 } as Patient;
 
 const surgery = {
-  status: "DRAFT",
+
   admissionDate: new Date("2026-07-01"),
   dischargeDate: new Date("2026-07-05"),
   diagnosis: "Community-acquired pneumonia",
@@ -58,7 +58,7 @@ describe("PDF rendering", () => {
   it("handles minimal records without optional fields", async () => {
     const minimal = {
       ...surgery,
-      status: "FINAL",
+
       medicationsAtDischarge: null,
       followUpInstructions: null,
       hospitalCourse: "Uneventful.",

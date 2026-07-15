@@ -112,10 +112,6 @@ export async function renderSurgeryPdf(
   const w = await createWriter();
 
   drawLetterhead(w, "SURGERY", doctor, patient);
-  if (surgery.status === "DRAFT") {
-    w.gap();
-    w.line("*** DRAFT — NOT FINALISED ***", { bold: true });
-  }
   w.line(
     `Admitted: ${formatDate(surgery.admissionDate)}   Discharged: ${formatDate(surgery.dischargeDate)}`,
   );

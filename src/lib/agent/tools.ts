@@ -160,7 +160,7 @@ export const agentTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   ),
   tool(
     "propose_create_surgery",
-    `Propose a surgery (created as DRAFT). ${PROPOSE_NOTE}`,
+    `Propose a surgery record. ${PROPOSE_NOTE}`,
     {
       patientId: { type: "string" },
       admissionDate: { type: "string", description: "YYYY-MM-DD" },
@@ -175,12 +175,6 @@ export const agentTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       followUpInstructions: { type: "string" },
     },
     ["patientId", "admissionDate", "dischargeDate", "diagnosis", "hospitalCourse"],
-  ),
-  tool(
-    "propose_finalize_surgery",
-    `Propose finalizing a surgery — it becomes immutable. ${PROPOSE_NOTE}`,
-    { surgeryId: { type: "string" } },
-    ["surgeryId"],
   ),
   tool(
     "confirm_action",
@@ -319,9 +313,6 @@ async function run(ctx: ToolContext, name: string, args: Record<string, unknown>
       const { patientId, ...data } = args;
       return propose(auth, "surgery.create", { patientId, data });
     }
-    case "propose_finalize_surgery":
-      return propose(auth, "surgery.finalize", { surgeryId: args.surgeryId });
-
     case "confirm_action": {
       // Only honor confirmAll if the doctor's actual words authorize it; the
       // model must not turn a bare "yes" into a confirm-everything.

@@ -123,7 +123,6 @@ async function main() {
     data: {
       doctorId,
       patientId: abdul.id,
-      status: "FINAL",
       admissionDate: d("2026-06-28"),
       dischargeDate: d("2026-07-02"),
       diagnosis: "Community-acquired pneumonia (right lower lobe)",
@@ -166,7 +165,7 @@ async function main() {
     },
   });
 
-  // 5) Mohammed Ali — a DRAFT surgery (shows the draft flow / PDF banner).
+  // 5) Mohammed Ali — a second surgery record.
   const ali = await prisma.patient.create({
     data: {
       doctorId,
@@ -182,7 +181,6 @@ async function main() {
     data: {
       doctorId,
       patientId: ali.id,
-      status: "DRAFT",
       admissionDate: d("2026-07-09"),
       dischargeDate: d("2026-07-12"),
       diagnosis: "Acute gastroenteritis with mild dehydration",

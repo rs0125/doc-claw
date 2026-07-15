@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, FileText, Pill, Stethoscope, Download, Plus, Pencil, Trash2, Lock } from "lucide-react";
+import { ArrowLeft, FileText, Pill, Stethoscope, Download, Plus, Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,6 @@ import { listPrescriptions } from "@/services/prescriptions";
 import { listSurgeries } from "@/services/surgeries";
 import { listAttachments } from "@/services/attachments";
 import {
-  finalizeSurgeryAction,
   deletePatientAction,
   archiveEncounterAction,
   archivePrescriptionAction,
@@ -235,7 +234,6 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
           <Card key={s.id} className="p-4">
             <div className="mb-1 flex items-center justify-between">
               <span className="text-sm font-medium">{s.diagnosis}</span>
-              <Badge variant={s.status === "FINAL" ? "default" : "outline"}>{s.status}</Badge>
             </div>
             <p className="text-xs text-muted-foreground">
               {fmtDate(s.admissionDate)} → {fmtDate(s.dischargeDate)}
@@ -249,32 +247,14 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
                   <Download className="size-3.5" /> PDF
                 </a>
               </Tooltip>
-              {s.status === "DRAFT" && (
-                <>
-                  <Tooltip label="Edit draft">
-                    <Link
-                      href={`/dashboard/patients/${id}/surgery/${s.id}/edit`}
-                      className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-                    >
-                      <Pencil className="size-3.5" />
-                    </Link>
-                  </Tooltip>
-                  <ConfirmButton
-                    action={finalizeSurgeryAction.bind(null, s.id, id)}
-                    trigger={
-                      <span className="inline-flex items-center gap-1">
-                        <Lock className="size-3.5" /> Finalize
-                      </span>
-                    }
-                    triggerVariant="ghost"
-                    triggerClassName="h-10 text-primary"
-                    title="Finalize surgery?"
-                    message="Finalizing locks this surgery permanently — it can no longer be edited. Continue?"
-                    confirmLabel="Finalize"
-                    confirmVariant="default"
-                  />
-                </>
-              )}
+              <Tooltip label="Edit surgery">
+                <Link
+                  href={`/dashboard/patients/${id}/surgery/${s.id}/edit`}
+                  className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <Pencil className="size-3.5" />
+                </Link>
+              </Tooltip>
               <ConfirmButton
                 action={archiveSurgeryAction.bind(null, id, s.id)}
                 trigger={<Trash2 className="size-3.5" />}

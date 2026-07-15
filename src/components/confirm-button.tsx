@@ -10,7 +10,7 @@ type Variant = "default" | "outline" | "secondary" | "ghost" | "destructive";
 
 /**
  * A button that opens a confirmation modal, then submits a bound server action.
- * Used for irreversible/destructive actions (archive, delete, finalize).
+ * Used for irreversible/destructive actions (archive, delete).
  */
 export function ConfirmButton({
   action,

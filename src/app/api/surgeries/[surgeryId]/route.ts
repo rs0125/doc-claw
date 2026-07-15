@@ -15,7 +15,7 @@ export const GET = handle(async (req: Request, { params }: Ctx) => {
   return json({ surgery });
 });
 
-// PATCH /api/surgeries/:surgeryId — edit fields and/or finalize (status: FINAL)
+// PATCH /api/surgeries/:surgeryId — edit fields
 export const PATCH = handle(async (req: Request, { params }: Ctx) => {
   const auth = await authenticate(req);
   const { surgeryId } = await params;
