@@ -19,7 +19,7 @@ export const BOT_COMMANDS: BotCommand[] = [
   { command: "add", description: "Register a new patient" },
   { command: "visit", description: "Record a visit / encounter" },
   { command: "prescribe", description: "Write a prescription" },
-  { command: "summary", description: "Prepare a discharge summary" },
+  { command: "surgery", description: "Record a surgery" },
   { command: "web", description: "Open your dashboard in a browser" },
   { command: "cancel", description: "Cancel a pending change" },
   { command: "help", description: "What this bot can do" },
@@ -33,7 +33,7 @@ export const HELP_TEXT = [
   "/add <details> — register a new patient",
   "/visit <details> — record a visit / encounter",
   "/prescribe <details> — write a prescription",
-  "/summary <name> — prepare a discharge summary",
+  "/surgery <name> — record a surgery",
   "/web — open your dashboard in a browser",
   "/cancel — cancel a change you haven't confirmed",
   "/unlink — disconnect this chat",
@@ -106,10 +106,10 @@ export async function routeCommand(doctor: Doctor, text: string): Promise<Comman
             text: "Usage: /prescribe <patient, drug, dose, frequency, duration…>",
           };
 
-    case "summary":
+    case "surgery":
       return args
-        ? { kind: "agent", instruction: `Prepare a discharge summary for ${args}` }
-        : { kind: "reply", text: "Usage: /summary <patient name>" };
+        ? { kind: "agent", instruction: `Record a surgery for ${args}` }
+        : { kind: "reply", text: "Usage: /surgery <patient name>" };
 
     default:
       return { kind: "reply", text: `Unknown command /${cmd}. Send /help to see what I can do.` };

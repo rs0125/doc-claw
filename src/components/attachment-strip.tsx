@@ -4,22 +4,22 @@ import { AttachmentThumb } from "@/components/attachment-thumb";
 
 /**
  * Compact photo/scan row attached to a single record (prescription or discharge
- * summary). The upload links the file to that record via prescriptionId /
- * dischargeSummaryId. Rendered inside the record entry as an optional supplement.
+ * surgery). The upload links the file to that record via prescriptionId /
+ * surgeryId. Rendered inside the record entry as an optional supplement.
  */
 export function AttachmentStrip({
   patientId,
   kind,
   items,
   prescriptionId,
-  dischargeSummaryId,
+  surgeryId,
   label = "Photos",
 }: {
   patientId: string;
   kind: AttachmentKind;
   items: Attachment[];
   prescriptionId?: string;
-  dischargeSummaryId?: string;
+  surgeryId?: string;
   label?: string;
 }) {
   return (
@@ -33,7 +33,7 @@ export function AttachmentStrip({
           patientId={patientId}
           kind={kind}
           prescriptionId={prescriptionId}
-          dischargeSummaryId={dischargeSummaryId}
+          surgeryId={surgeryId}
           compact
         />
       </div>

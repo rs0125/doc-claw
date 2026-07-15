@@ -5,23 +5,23 @@ import { useRouter } from "next/navigation";
 import { ImagePlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type Kind = "PRESCRIPTION" | "DISCHARGE_SUMMARY" | "LAB_REPORT" | "OTHER";
+type Kind = "PRESCRIPTION" | "SURGERY" | "LAB_REPORT" | "OTHER";
 
 /** Uploads an image/PDF straight to R2 via a presigned PUT, then confirms.
  * With a fixed `kind` the type selector is hidden. An optional prescriptionId /
- * dischargeSummaryId links the file to that specific record. `compact` shows just
+ * surgeryId links the file to that specific record. `compact` shows just
  * a small "Add photo" button (used inside a record entry). */
 export function AttachmentUpload({
   patientId,
   kind: fixedKind,
   prescriptionId,
-  dischargeSummaryId,
+  surgeryId,
   compact,
 }: {
   patientId: string;
   kind?: Kind;
   prescriptionId?: string;
-  dischargeSummaryId?: string;
+  surgeryId?: string;
   compact?: boolean;
 }) {
   const [kind, setKind] = useState<Kind>(fixedKind ?? "PRESCRIPTION");
@@ -43,7 +43,7 @@ export function AttachmentUpload({
           contentType: file.type,
           fileName: file.name,
           prescriptionId,
-          dischargeSummaryId,
+          surgeryId,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Could not start upload");
@@ -77,7 +77,7 @@ export function AttachmentUpload({
             className="h-9 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="PRESCRIPTION">Prescription</option>
-            <option value="DISCHARGE_SUMMARY">Discharge summary</option>
+            <option value="SURGERY">Surgery</option>
             <option value="LAB_REPORT">Lab report</option>
             <option value="OTHER">Other</option>
           </select>

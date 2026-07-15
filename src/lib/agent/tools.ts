@@ -14,7 +14,7 @@ import {
   proposeAction,
   type PendingActionType,
 } from "@/services/pending-actions";
-import { getSummary, getSummaryDocumentUrl, listSummaries } from "@/services/summaries";
+import { getSurgery, getSurgeryDocumentUrl, listSurgeries } from "@/services/surgeries";
 
 const medicationParam = {
   type: "object",
@@ -79,17 +79,17 @@ export const agentTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   tool("list_prescriptions", "List a patient's prescriptions, newest first.", {
     patientId: { type: "string" },
   }, ["patientId"]),
-  tool("list_discharge_summaries", "List a patient's discharge summaries, newest first.", {
+  tool("list_surgeries", "List a patient's surgeries, newest first.", {
     patientId: { type: "string" },
   }, ["patientId"]),
-  tool("get_discharge_summary", "Fetch one discharge summary in full.", {
-    summaryId: { type: "string" },
-  }, ["summaryId"]),
+  tool("get_surgery", "Fetch one surgery in full.", {
+    surgeryId: { type: "string" },
+  }, ["surgeryId"]),
   tool(
-    "get_discharge_summary_pdf",
-    "Get a download link (valid 15 min) for a discharge summary PDF.",
-    { summaryId: { type: "string" } },
-    ["summaryId"],
+    "get_surgery_pdf",
+    "Get a download link (valid 15 min) for a surgery PDF.",
+    { surgeryId: { type: "string" } },
+    ["surgeryId"],
   ),
   tool(
     "get_prescription_pdf",
@@ -102,7 +102,7 @@ export const agentTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     "List a patient's uploaded photos/scans (paper prescriptions, lab reports). Optional kind filter.",
     {
       patientId: { type: "string" },
-      kind: { type: "string", enum: ["PRESCRIPTION", "DISCHARGE_SUMMARY", "LAB_REPORT", "OTHER"] },
+      kind: { type: "string", enum: ["PRESCRIPTION", "SURGERY", "LAB_REPORT", "OTHER"] },
     },
     ["patientId"],
   ),
@@ -159,8 +159,8 @@ export const agentTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     ["patientId", "date", "medications"],
   ),
   tool(
-    "propose_create_discharge_summary",
-    `Propose a discharge summary (created as DRAFT). ${PROPOSE_NOTE}`,
+    "propose_create_surgery",
+    `Propose a surgery (created as DRAFT). ${PROPOSE_NOTE}`,
     {
       patientId: { type: "string" },
       admissionDate: { type: "string", description: "YYYY-MM-DD" },
@@ -177,10 +177,10 @@ export const agentTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     ["patientId", "admissionDate", "dischargeDate", "diagnosis", "hospitalCourse"],
   ),
   tool(
-    "propose_finalize_discharge_summary",
-    `Propose finalizing a discharge summary — it becomes immutable. ${PROPOSE_NOTE}`,
-    { summaryId: { type: "string" } },
-    ["summaryId"],
+    "propose_finalize_surgery",
+    `Propose finalizing a surgery — it becomes immutable. ${PROPOSE_NOTE}`,
+    { surgeryId: { type: "string" } },
+    ["surgeryId"],
   ),
   tool(
     "confirm_action",
@@ -266,12 +266,12 @@ async function run(ctx: ToolContext, name: string, args: Record<string, unknown>
       return listEncounters(auth, args.patientId as string);
     case "list_prescriptions":
       return listPrescriptions(auth, args.patientId as string);
-    case "list_discharge_summaries":
-      return listSummaries(auth, args.patientId as string);
-    case "get_discharge_summary":
-      return getSummary(auth, args.summaryId as string);
-    case "get_discharge_summary_pdf":
-      return getSummaryDocumentUrl(auth, args.summaryId as string);
+    case "list_surgeries":
+      return listSurgeries(auth, args.patientId as string);
+    case "get_surgery":
+      return getSurgery(auth, args.surgeryId as string);
+    case "get_surgery_pdf":
+      return getSurgeryDocumentUrl(auth, args.surgeryId as string);
     case "get_prescription_pdf":
       return getPrescriptionDocumentUrl(auth, args.prescriptionId as string);
     case "list_attachments": {
@@ -315,12 +315,12 @@ async function run(ctx: ToolContext, name: string, args: Record<string, unknown>
       const { patientId, ...data } = args;
       return propose(auth, "prescription.create", { patientId, data });
     }
-    case "propose_create_discharge_summary": {
+    case "propose_create_surgery": {
       const { patientId, ...data } = args;
-      return propose(auth, "summary.create", { patientId, data });
+      return propose(auth, "surgery.create", { patientId, data });
     }
-    case "propose_finalize_discharge_summary":
-      return propose(auth, "summary.finalize", { summaryId: args.summaryId });
+    case "propose_finalize_surgery":
+      return propose(auth, "surgery.finalize", { surgeryId: args.surgeryId });
 
     case "confirm_action": {
       // Only honor confirmAll if the doctor's actual words authorize it; the

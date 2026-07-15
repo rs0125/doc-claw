@@ -20,7 +20,7 @@ model Doctor {
 
   tokens               ApiToken[]
   patients             Patient[]
-  dischargeSummaries   DischargeSummary[]
+  surgeries   Surgery[]
   auditLogs            AuditLog[]
   encounters           Encounter[]
   prescriptions        Prescription[]
@@ -75,7 +75,7 @@ model Patient {
   updatedAt         DateTime  @updatedAt
 
   doctor             Doctor             @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  dischargeSummaries DischargeSummary[]
+  surgeries Surgery[]
   encounters         Encounter[]
   prescriptions      Prescription[]
   attachments        Attachment[]
@@ -86,7 +86,7 @@ model Patient {
 
 enum AttachmentKind {
   PRESCRIPTION
-  DISCHARGE_SUMMARY
+  SURGERY
   LAB_REPORT
   OTHER
 }
@@ -100,7 +100,7 @@ model Attachment {
   patientId          String
   kind               AttachmentKind @default(OTHER)
   prescriptionId     String? // optional link to a specific record
-  dischargeSummaryId String?
+  surgeryId String?
   r2Key              String         @unique
   contentType        String
   fileName           String?
@@ -111,7 +111,7 @@ model Attachment {
   doctor           Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   patient          Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   prescription     Prescription?     @relation(fields: [prescriptionId], references: [id], onDelete: SetNull)
-  dischargeSummary DischargeSummary? @relation(fields: [dischargeSummaryId], references: [id], onDelete: SetNull)
+  surgery Surgery? @relation(fields: [surgeryId], references: [id], onDelete: SetNull)
 
   @@index([patientId, kind])
   @@index([doctorId])
@@ -164,16 +164,16 @@ model Prescription {
   @@index([doctorId])
 }
 
-enum SummaryStatus {
+enum SurgeryStatus {
   DRAFT
   FINAL
 }
 
-model DischargeSummary {
+model Surgery {
   id                      String        @id @default(cuid())
   doctorId                String
   patientId               String
-  status                  SummaryStatus @default(DRAFT)
+  status                  SurgeryStatus @default(DRAFT)
   admissionDate           DateTime      @db.Date
   dischargeDate           DateTime      @db.Date
   diagnosis               String
@@ -320,8 +320,8 @@ model AuditLog {
   id           String   @id @default(cuid())
   doctorId     String
   tokenId      String?
-  action       String // e.g. "patient.create", "patient.read", "summary.document.download"
-  resourceType String // "Patient" | "DischargeSummary" | ...
+  action       String // e.g. "patient.create", "patient.read", "surgery.document.download"
+  resourceType String // "Patient" | "Surgery" | ...
   resourceId   String?
   details      Json?
   createdAt    DateTime @default(now())

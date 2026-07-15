@@ -9,7 +9,7 @@ import {
   patientCreateSchema,
   patientUpdateSchema,
   prescriptionCreateSchema,
-  summaryCreateSchema,
+  surgeryCreateSchema,
 } from "@/lib/validation";
 import { archiveEncounter, createEncounter, updateEncounter } from "@/services/encounters";
 import {
@@ -23,7 +23,7 @@ import {
   createPrescription,
   updatePrescription,
 } from "@/services/prescriptions";
-import { archiveSummary, createSummary, updateSummary } from "@/services/summaries";
+import { archiveSurgery, createSurgery, updateSurgery } from "@/services/surgeries";
 
 const VIA = "web";
 export type FormState = { error?: string; duplicate?: string };
@@ -59,6 +59,7 @@ function patientPayload(fd: FormData) {
   return {
     name: str(fd.get("name")),
     dateOfBirth: str(fd.get("dateOfBirth")),
+    age: str(fd.get("age")),
     sex: str(fd.get("sex")),
     phone: str(fd.get("phone")),
     abhaId: str(fd.get("abhaId")),
@@ -245,20 +246,20 @@ export async function archivePrescriptionAction(patientId: string, prescriptionI
   revalidatePath(`/dashboard/patients/${patientId}`);
 }
 
-export async function archiveSummaryAction(patientId: string, summaryId: string) {
+export async function archiveSurgeryAction(patientId: string, surgeryId: string) {
   const a = await auth();
-  await archiveSummary(a, summaryId, VIA);
+  await archiveSurgery(a, surgeryId, VIA);
   revalidatePath(`/dashboard/patients/${patientId}`);
 }
 
-export async function createSummaryAction(
+export async function createSurgeryAction(
   patientId: string,
   _prev: FormState,
   fd: FormData,
 ): Promise<FormState> {
   const a = await auth();
   try {
-    const data = summaryCreateSchema.parse({
+    const data = surgeryCreateSchema.parse({
       admissionDate: str(fd.get("admissionDate")),
       dischargeDate: str(fd.get("dischargeDate")),
       diagnosis: str(fd.get("diagnosis")),
@@ -270,7 +271,7 @@ export async function createSummaryAction(
       medicationsAtDischarge: parseMeds(fd),
       followUpInstructions: str(fd.get("followUpInstructions")),
     });
-    await createSummary(a, patientId, data, VIA);
+    await createSurgery(a, patientId, data, VIA);
   } catch (err) {
     return { error: firstIssue(err) };
   }
@@ -278,15 +279,15 @@ export async function createSummaryAction(
   redirect(`/dashboard/patients/${patientId}`);
 }
 
-export async function updateSummaryAction(
+export async function updateSurgeryAction(
   patientId: string,
-  summaryId: string,
+  surgeryId: string,
   _prev: FormState,
   fd: FormData,
 ): Promise<FormState> {
   const a = await auth();
   try {
-    const data = summaryCreateSchema.parse({
+    const data = surgeryCreateSchema.parse({
       admissionDate: str(fd.get("admissionDate")),
       dischargeDate: str(fd.get("dischargeDate")),
       diagnosis: str(fd.get("diagnosis")),
@@ -298,7 +299,7 @@ export async function updateSummaryAction(
       medicationsAtDischarge: parseMeds(fd),
       followUpInstructions: str(fd.get("followUpInstructions")),
     });
-    await updateSummary(a, summaryId, data, VIA);
+    await updateSurgery(a, surgeryId, data, VIA);
   } catch (err) {
     return { error: firstIssue(err) };
   }
@@ -306,8 +307,8 @@ export async function updateSummaryAction(
   redirect(`/dashboard/patients/${patientId}`);
 }
 
-export async function finalizeSummaryAction(summaryId: string, patientId: string) {
+export async function finalizeSurgeryAction(surgeryId: string, patientId: string) {
   const a = await auth();
-  await updateSummary(a, summaryId, { status: "FINAL" }, VIA);
+  await updateSurgery(a, surgeryId, { status: "FINAL" }, VIA);
   revalidatePath(`/dashboard/patients/${patientId}`);
 }

@@ -6,8 +6,8 @@ import {
   patientCreateSchema,
   patientUpdateSchema,
   prescriptionCreateSchema,
-  summaryCreateSchema,
-  summaryUpdateSchema,
+  surgeryCreateSchema,
+  surgeryUpdateSchema,
 } from "@/lib/validation";
 
 describe("patientCreateSchema", () => {
@@ -99,7 +99,7 @@ describe("medicationSchema", () => {
   });
 });
 
-describe("summary schemas", () => {
+describe("surgery schemas", () => {
   const base = {
     admissionDate: "2026-07-01",
     dischargeDate: "2026-07-05",
@@ -107,20 +107,20 @@ describe("summary schemas", () => {
     hospitalCourse: "Improved on IV antibiotics.",
   };
 
-  it("accepts a valid summary and transforms both dates", () => {
-    const parsed = summaryCreateSchema.parse(base);
+  it("accepts a valid surgery and transforms both dates", () => {
+    const parsed = surgeryCreateSchema.parse(base);
     expect(parsed.admissionDate).toBeInstanceOf(Date);
     expect(parsed.dischargeDate).toBeInstanceOf(Date);
   });
 
   it("requires diagnosis and hospitalCourse", () => {
-    expect(() => summaryCreateSchema.parse({ ...base, diagnosis: undefined })).toThrow();
-    expect(() => summaryCreateSchema.parse({ ...base, hospitalCourse: "" })).toThrow();
+    expect(() => surgeryCreateSchema.parse({ ...base, diagnosis: undefined })).toThrow();
+    expect(() => surgeryCreateSchema.parse({ ...base, hospitalCourse: "" })).toThrow();
   });
 
   it("only allows DRAFT/FINAL statuses on update", () => {
-    expect(summaryUpdateSchema.parse({ status: "FINAL" }).status).toBe("FINAL");
-    expect(() => summaryUpdateSchema.parse({ status: "final" })).toThrow();
+    expect(surgeryUpdateSchema.parse({ status: "FINAL" }).status).toBe("FINAL");
+    expect(() => surgeryUpdateSchema.parse({ status: "final" })).toThrow();
   });
 });
 

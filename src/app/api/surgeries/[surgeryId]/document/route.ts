@@ -1,16 +1,16 @@
 import { authenticate } from "@/lib/auth";
 import { handle, json } from "@/lib/http";
-import { getSummaryDocumentUrl } from "@/services/summaries";
+import { getSurgeryDocumentUrl } from "@/services/surgeries";
 
 export const dynamic = "force-dynamic";
 
-type Ctx = { params: Promise<{ summaryId: string }> };
+type Ctx = { params: Promise<{ surgeryId: string }> };
 
-// GET /api/discharge-summaries/:summaryId/document
+// GET /api/surgeries/:surgeryId/document
 // Renders the PDF to R2 (if missing or stale) and returns a short-lived signed URL.
 export const GET = handle(async (req: Request, { params }: Ctx) => {
   const auth = await authenticate(req);
-  const { summaryId } = await params;
-  const result = await getSummaryDocumentUrl(auth, summaryId);
+  const { surgeryId } = await params;
+  const result = await getSurgeryDocumentUrl(auth, surgeryId);
   return json(result);
 });

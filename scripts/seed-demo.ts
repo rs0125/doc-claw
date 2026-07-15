@@ -1,6 +1,6 @@
 /**
  * Reseed Dr. Raghav's account with a realistic demo roster: patients with
- * encounters, prescriptions, and discharge summaries. Idempotent — wipes this
+ * encounters, prescriptions, and surgeries. Idempotent — wipes this
  * doctor's existing patients (cascade) and recreates.
  *
  *   npm run seed-demo
@@ -19,7 +19,7 @@ async function main() {
   if (!doctor) throw new Error(`No doctor ${EMAIL} — run create-doctor first`);
   const doctorId = doctor.id;
 
-  // Wipe existing patients (cascade removes their encounters/rx/summaries).
+  // Wipe existing patients (cascade removes their encounters/rx/surgeries).
   const removed = await prisma.patient.deleteMany({ where: { doctorId } });
   console.log(`Cleared ${removed.count} existing patient(s).`);
 
@@ -107,7 +107,7 @@ async function main() {
     },
   });
 
-  // 3) Abdul Rahman — recent inpatient stay, FINAL discharge summary + PDF-ready.
+  // 3) Abdul Rahman — recent inpatient stay, FINAL surgery + PDF-ready.
   const abdul = await prisma.patient.create({
     data: {
       doctorId,
@@ -119,7 +119,7 @@ async function main() {
       chronicConditions: ["Ischemic heart disease"],
     },
   });
-  await prisma.dischargeSummary.create({
+  await prisma.surgery.create({
     data: {
       doctorId,
       patientId: abdul.id,
@@ -166,7 +166,7 @@ async function main() {
     },
   });
 
-  // 5) Mohammed Ali — a DRAFT discharge summary (shows the draft flow / PDF banner).
+  // 5) Mohammed Ali — a DRAFT surgery (shows the draft flow / PDF banner).
   const ali = await prisma.patient.create({
     data: {
       doctorId,
@@ -178,7 +178,7 @@ async function main() {
       chronicConditions: ["Type 2 diabetes"],
     },
   });
-  await prisma.dischargeSummary.create({
+  await prisma.surgery.create({
     data: {
       doctorId,
       patientId: ali.id,
@@ -203,9 +203,9 @@ async function main() {
     prisma.patient.count({ where: { doctorId } }),
     prisma.encounter.count({ where: { doctorId } }),
     prisma.prescription.count({ where: { doctorId } }),
-    prisma.dischargeSummary.count({ where: { doctorId } }),
+    prisma.surgery.count({ where: { doctorId } }),
   ]);
-  console.log(`Seeded: ${pc} patients, ${ec} encounters, ${rc} prescriptions, ${sc} discharge summaries.`);
+  console.log(`Seeded: ${pc} patients, ${ec} encounters, ${rc} prescriptions, ${sc} surgeries.`);
   console.log("Patients: Ramesh Kumar, Sita Devi, Abdul Rahman, Lakshmi Menon, Mohammed Ali");
   await prisma.$disconnect();
 }

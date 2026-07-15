@@ -3,7 +3,7 @@
 **Patient records for Indian doctors — as easy as texting.**
 
 Kordex Health is a lightweight system of record for solo practitioners and small
-clinics. Doctors manage patients, visits, prescriptions, and discharge summaries
+clinics. Doctors manage patients, visits, prescriptions, and surgeries
 from a mobile-first web dashboard — or by simply messaging a Telegram bot in
 plain language ("add a visit for Ramesh, fever 2 days, gave paracetamol").
 Either way, the data lands in the same audited, doctor-scoped record.
@@ -23,11 +23,11 @@ Either way, the data lands in the same audited, doctor-scoped record.
 - **Visits (encounters)** — complaint, examination, vitals, diagnosis, plan.
 - **Prescriptions** — structured medication rows (dose / frequency / duration),
   rendered to PDF on demand and served via short-lived signed URLs.
-- **Discharge summaries** — built from structured fields (never freehand LLM
-  text), draft → finalize workflow; finalized summaries are immutable.
+- **Surgeries** — built from structured fields (never freehand LLM
+  text), draft → finalize workflow; finalized surgeries are immutable.
 - **Photos & scans** — attach prescription/report photos per record from the
   web, or just send a photo to the Telegram bot; files live in R2.
-- **Telegram assistant** — `/find`, `/add`, `/visit`, `/prescribe`, `/summary`,
+- **Telegram assistant** — `/find`, `/add`, `/visit`, `/prescribe`, `/surgery`,
   or free-form messages (including Hinglish). Every write is confirmed by the
   doctor before it lands. Photos sent to the bot are stored against the patient;
   the bot can send stored photos and PDFs back.
@@ -96,9 +96,9 @@ All routes require `Authorization: Bearer <token>`. Dates are `YYYY-MM-DD`.
 | GET / POST | `/api/patients/:id/prescriptions` | Prescriptions: list / create |
 | GET | `/api/prescriptions/:id` | Prescription details |
 | GET | `/api/prescriptions/:id/document` | Signed PDF URL (renders on demand) |
-| GET / POST | `/api/patients/:id/discharge-summaries` | Summaries: list / create (DRAFT) |
-| GET / PATCH | `/api/discharge-summaries/:id` | Summary details / update / finalize |
-| GET | `/api/discharge-summaries/:id/document` | Signed PDF URL |
+| GET / POST | `/api/patients/:id/surgeries` | Surgeries: list / create (DRAFT) |
+| GET / PATCH | `/api/surgeries/:id` | Surgery details / update / finalize |
+| GET | `/api/surgeries/:id/document` | Signed PDF URL |
 | POST | `/api/attachments` → PUT → `/api/attachments/:id/complete` | Direct-to-R2 photo upload |
 | GET | `/api/audit-logs?limit=&offset=` | Own audit trail |
 | POST | `/api/telegram/webhook` | Telegram webhook (secret-token gated) |
@@ -119,5 +119,5 @@ same key replays the stored response instead of creating a duplicate.
 
 ## Roadmap
 
-- Summary amendments (versioned corrections instead of edit-FINAL)
+- Surgery amendments (versioned corrections instead of edit-FINAL)
 - Per-doctor agent config (custom prompts/tools, external system adapters)

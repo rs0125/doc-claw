@@ -31,7 +31,7 @@ export async function createAttachment(
     contentType: string;
     fileName?: string;
     prescriptionId?: string;
-    dischargeSummaryId?: string;
+    surgeryId?: string;
     source?: string;
   },
 ) {
@@ -51,7 +51,7 @@ export async function createAttachment(
         contentType: input.contentType,
         fileName: input.fileName,
         prescriptionId: input.prescriptionId,
-        dischargeSummaryId: input.dischargeSummaryId,
+        surgeryId: input.surgeryId,
         source: input.source ?? "web",
         r2Key,
       },

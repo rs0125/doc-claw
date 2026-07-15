@@ -13,14 +13,14 @@ import { ApiError } from "@/lib/http";
 import { getPatient } from "@/services/patients";
 import { listEncounters } from "@/services/encounters";
 import { listPrescriptions } from "@/services/prescriptions";
-import { listSummaries } from "@/services/summaries";
+import { listSurgeries } from "@/services/surgeries";
 import { listAttachments } from "@/services/attachments";
 import {
-  finalizeSummaryAction,
+  finalizeSurgeryAction,
   deletePatientAction,
   archiveEncounterAction,
   archivePrescriptionAction,
-  archiveSummaryAction,
+  archiveSurgeryAction,
 } from "@/app/dashboard/patient-actions";
 import { formatDate as fmtDate } from "@/lib/format";
 import type { Medication } from "@/lib/validation";
@@ -51,24 +51,24 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
     throw err;
   }
 
-  const [encounters, prescriptions, summaries, attachments] = await Promise.all([
+  const [encounters, prescriptions, surgeries, attachments] = await Promise.all([
     listEncounters(auth, id),
     listPrescriptions(auth, id),
-    listSummaries(auth, id),
+    listSurgeries(auth, id),
     listAttachments(auth, id),
   ]);
   // Group attachments by the specific record they supplement. Ones with no
   // record link (e.g. uploaded via the Telegram bot) are surfaced per-kind so
   // they're never orphaned.
   const photosByPrescription = new Map<string, typeof attachments>();
-  const photosBySummary = new Map<string, typeof attachments>();
-  const unlinked = { PRESCRIPTION: [] as typeof attachments, DISCHARGE_SUMMARY: [] as typeof attachments };
+  const photosBySurgery = new Map<string, typeof attachments>();
+  const unlinked = { PRESCRIPTION: [] as typeof attachments, SURGERY: [] as typeof attachments };
   for (const a of attachments) {
     if (a.prescriptionId) {
       (photosByPrescription.get(a.prescriptionId) ?? photosByPrescription.set(a.prescriptionId, []).get(a.prescriptionId)!).push(a);
-    } else if (a.dischargeSummaryId) {
-      (photosBySummary.get(a.dischargeSummaryId) ?? photosBySummary.set(a.dischargeSummaryId, []).get(a.dischargeSummaryId)!).push(a);
-    } else if (a.kind === "PRESCRIPTION" || a.kind === "DISCHARGE_SUMMARY") {
+    } else if (a.surgeryId) {
+      (photosBySurgery.get(a.surgeryId) ?? photosBySurgery.set(a.surgeryId, []).get(a.surgeryId)!).push(a);
+    } else if (a.kind === "PRESCRIPTION" || a.kind === "SURGERY") {
       unlinked[a.kind].push(a);
     }
   }
@@ -223,15 +223,15 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
         ))}
       </Section>
 
-      {/* Discharge summaries */}
+      {/* Surgeries */}
       <Section
         icon={<FileText className="size-4" />}
-        title="Discharge summaries"
-        count={summaries.length}
-        addHref={`/dashboard/patients/${id}/summary/new`}
-        footer={unlinkedFooter(unlinked.DISCHARGE_SUMMARY)}
+        title="Surgeries"
+        count={surgeries.length}
+        addHref={`/dashboard/patients/${id}/surgery/new`}
+        footer={unlinkedFooter(unlinked.SURGERY)}
       >
-        {summaries.map((s) => (
+        {surgeries.map((s) => (
           <Card key={s.id} className="p-4">
             <div className="mb-1 flex items-center justify-between">
               <span className="text-sm font-medium">{s.diagnosis}</span>
@@ -241,9 +241,9 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
               {fmtDate(s.admissionDate)} → {fmtDate(s.dischargeDate)}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-1">
-              <Tooltip label="Download discharge summary PDF">
+              <Tooltip label="Download surgery PDF">
                 <a
-                  href={`/dl/summary/${s.id}`}
+                  href={`/dl/surgery/${s.id}`}
                   className="inline-flex h-10 items-center gap-1 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   <Download className="size-3.5" /> PDF
@@ -253,14 +253,14 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
                 <>
                   <Tooltip label="Edit draft">
                     <Link
-                      href={`/dashboard/patients/${id}/summary/${s.id}/edit`}
+                      href={`/dashboard/patients/${id}/surgery/${s.id}/edit`}
                       className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                     >
                       <Pencil className="size-3.5" />
                     </Link>
                   </Tooltip>
                   <ConfirmButton
-                    action={finalizeSummaryAction.bind(null, s.id, id)}
+                    action={finalizeSurgeryAction.bind(null, s.id, id)}
                     trigger={
                       <span className="inline-flex items-center gap-1">
                         <Lock className="size-3.5" /> Finalize
@@ -268,27 +268,27 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
                     }
                     triggerVariant="ghost"
                     triggerClassName="h-10 text-primary"
-                    title="Finalize discharge summary?"
-                    message="Finalizing locks this summary permanently — it can no longer be edited. Continue?"
+                    title="Finalize surgery?"
+                    message="Finalizing locks this surgery permanently — it can no longer be edited. Continue?"
                     confirmLabel="Finalize"
                     confirmVariant="default"
                   />
                 </>
               )}
               <ConfirmButton
-                action={archiveSummaryAction.bind(null, id, s.id)}
+                action={archiveSurgeryAction.bind(null, id, s.id)}
                 trigger={<Trash2 className="size-3.5" />}
                 triggerClassName="size-10 p-0 text-muted-foreground hover:text-destructive"
-                title="Delete discharge summary?"
-                message="This removes the summary from the patient's record. It won't appear in lists."
-                confirmLabel="Delete summary"
+                title="Delete surgery?"
+                message="This removes the surgery from the patient's record. It won't appear in lists."
+                confirmLabel="Delete surgery"
               />
             </div>
             <AttachmentStrip
               patientId={id}
-              kind="DISCHARGE_SUMMARY"
-              dischargeSummaryId={s.id}
-              items={photosBySummary.get(s.id) ?? []}
+              kind="SURGERY"
+              surgeryId={s.id}
+              items={photosBySurgery.get(s.id) ?? []}
             />
           </Card>
         ))}
@@ -349,7 +349,7 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
               }
               triggerVariant="destructive"
               title={`Permanently delete ${patient.name}?`}
-              message="This erases the patient and ALL their visits, prescriptions, summaries and uploaded files, including from storage. This cannot be undone."
+              message="This erases the patient and ALL their visits, prescriptions, surgeries and uploaded files, including from storage. This cannot be undone."
               confirmLabel="Delete permanently"
             />
           </div>

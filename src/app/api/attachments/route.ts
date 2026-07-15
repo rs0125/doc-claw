@@ -7,11 +7,11 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   patientId: z.string().min(1),
-  kind: z.enum(["PRESCRIPTION", "DISCHARGE_SUMMARY", "LAB_REPORT", "OTHER"]),
+  kind: z.enum(["PRESCRIPTION", "SURGERY", "LAB_REPORT", "OTHER"]),
   contentType: z.string().min(1),
   fileName: z.string().optional(),
   prescriptionId: z.string().optional(),
-  dischargeSummaryId: z.string().optional(),
+  surgeryId: z.string().optional(),
 });
 
 // POST /api/attachments — register an upload and get a presigned PUT URL.

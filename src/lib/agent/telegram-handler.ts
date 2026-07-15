@@ -152,13 +152,13 @@ async function handleUnlinking(chatId: string) {
 function kindFromCaption(caption: string): AttachmentKind {
   const c = caption.toLowerCase();
   if (/\b(rx|prescription|prescrip)\b/.test(c)) return "PRESCRIPTION";
-  if (/\b(discharge|summary)\b/.test(c)) return "DISCHARGE_SUMMARY";
+  if (/\b(discharge|surgery)\b/.test(c)) return "SURGERY";
   if (/\b(lab|report|scan|x-?ray|test)\b/.test(c)) return "LAB_REPORT";
   return "OTHER";
 }
 
 const KIND_WORDS =
-  /\b(rx|prescription|prescrip|discharge|summary|lab|report|scan|x-?ray|test|photo|pic|image|of|for|the|patient)\b/gi;
+  /\b(rx|prescription|prescrip|discharge|surgery|lab|report|scan|x-?ray|test|photo|pic|image|of|for|the|patient)\b/gi;
 
 /**
  * Stores a photo/document sent to the bot against the patient named in the

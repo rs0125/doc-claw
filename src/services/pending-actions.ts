@@ -7,12 +7,12 @@ import {
   patientCreateSchema,
   patientUpdateSchema,
   prescriptionCreateSchema,
-  summaryCreateSchema,
+  surgeryCreateSchema,
 } from "@/lib/validation";
 import { createEncounter } from "@/services/encounters";
 import { assertOwnedPatient, createPatient, updatePatient } from "@/services/patients";
 import { createPrescription } from "@/services/prescriptions";
-import { createSummary, updateSummary } from "@/services/summaries";
+import { createSurgery, updateSurgery } from "@/services/surgeries";
 
 const VIA = "telegram-agent";
 
@@ -28,8 +28,8 @@ const actionSchemas = {
   "patient.update": z.object({ patientId: z.string(), data: patientUpdateSchema }),
   "encounter.create": z.object({ patientId: z.string(), data: encounterCreateSchema }),
   "prescription.create": z.object({ patientId: z.string(), data: prescriptionCreateSchema }),
-  "summary.create": z.object({ patientId: z.string(), data: summaryCreateSchema }),
-  "summary.finalize": z.object({ summaryId: z.string() }),
+  "surgery.create": z.object({ patientId: z.string(), data: surgeryCreateSchema }),
+  "surgery.finalize": z.object({ surgeryId: z.string() }),
 } as const;
 
 export type PendingActionType = keyof typeof actionSchemas;
@@ -189,13 +189,13 @@ async function executeAction(auth: AuthContext, type: string, payload: unknown) 
       const { patientId, data } = actionSchemas[type].parse(payload);
       return { prescription: await createPrescription(auth, patientId, data, VIA) };
     }
-    case "summary.create": {
+    case "surgery.create": {
       const { patientId, data } = actionSchemas[type].parse(payload);
-      return { summary: await createSummary(auth, patientId, data, VIA) };
+      return { surgery: await createSurgery(auth, patientId, data, VIA) };
     }
-    case "summary.finalize": {
-      const { summaryId } = actionSchemas[type].parse(payload);
-      return { summary: await updateSummary(auth, summaryId, { status: "FINAL" }, VIA) };
+    case "surgery.finalize": {
+      const { surgeryId } = actionSchemas[type].parse(payload);
+      return { surgery: await updateSurgery(auth, surgeryId, { status: "FINAL" }, VIA) };
     }
   }
 }

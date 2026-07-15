@@ -12,22 +12,22 @@ const SECTIONS: { title: string; items: string[] }[] = [
     items: [
       "Search by name or phone at the top of the dashboard.",
       "Tap the round + button (bottom-right) to add a new patient.",
-      "Open a patient to see their visits, prescriptions, summaries and photos.",
+      "Open a patient to see their visits, prescriptions, surgeries and photos.",
       "Use Edit on a patient to update demographics, allergies and chronic conditions.",
     ],
   },
   {
     title: "Records",
     items: [
-      "Each section (Prescriptions, Discharge summaries, Visits) has an Add button.",
-      "Prescriptions and discharge summaries can be downloaded as a PDF.",
-      "A draft discharge summary can be Finalized — after that it can't be edited.",
+      "Each section (Prescriptions, Surgeries, Visits) has an Add button.",
+      "Prescriptions and surgeries can be downloaded as a PDF.",
+      "A draft surgery can be Finalized — after that it can't be edited.",
     ],
   },
   {
     title: "Photos & scans",
     items: [
-      "Inside Prescriptions and Discharge summaries, use Upload photo to attach an image or PDF (e.g. a paper prescription or lab report).",
+      "Inside Prescriptions and Surgeries, use Upload photo to attach an image or PDF (e.g. a paper prescription or lab report).",
       "Uploads are stored securely and shown as thumbnails; tap one to open the full image.",
     ],
   },

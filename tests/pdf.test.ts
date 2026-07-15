@@ -1,7 +1,7 @@
 import { PDFDocument } from "pdf-lib";
 import { describe, expect, it } from "vitest";
-import type { DischargeSummary, Doctor, Patient, Prescription } from "@/generated/prisma/client";
-import { renderDischargeSummaryPdf, renderPrescriptionPdf } from "@/lib/pdf";
+import type { Surgery, Doctor, Patient, Prescription } from "@/generated/prisma/client";
+import { renderSurgeryPdf, renderPrescriptionPdf } from "@/lib/pdf";
 
 const doctor = {
   name: "Dr. A Sharma",
@@ -17,7 +17,7 @@ const patient = {
   abhaId: null,
 } as Patient;
 
-const summary = {
+const surgery = {
   status: "DRAFT",
   admissionDate: new Date("2026-07-01"),
   dischargeDate: new Date("2026-07-05"),
@@ -29,7 +29,7 @@ const summary = {
   conditionAtDischarge: null,
   medicationsAtDischarge: [{ name: "Cefixime", dose: "200 mg", frequency: "1-0-1" }],
   followUpInstructions: "Review in 1 week",
-} as unknown as DischargeSummary;
+} as unknown as Surgery;
 
 const prescription = {
   date: new Date("2026-07-12"),
@@ -42,8 +42,8 @@ const prescription = {
 } as unknown as Prescription;
 
 describe("PDF rendering", () => {
-  it("renders a loadable discharge summary PDF, paginating long content", async () => {
-    const bytes = await renderDischargeSummaryPdf(summary, patient, doctor);
+  it("renders a loadable surgery PDF, paginating long content", async () => {
+    const bytes = await renderSurgeryPdf(surgery, patient, doctor);
     expect(bytes.length).toBeGreaterThan(500);
     const doc = await PDFDocument.load(bytes);
     expect(doc.getPageCount()).toBeGreaterThan(1);
@@ -57,14 +57,14 @@ describe("PDF rendering", () => {
 
   it("handles minimal records without optional fields", async () => {
     const minimal = {
-      ...summary,
+      ...surgery,
       status: "FINAL",
       medicationsAtDischarge: null,
       followUpInstructions: null,
       hospitalCourse: "Uneventful.",
-    } as unknown as DischargeSummary;
+    } as unknown as Surgery;
     const bare = { ...patient, dateOfBirth: null, bloodGroup: null } as Patient;
-    const bytes = await renderDischargeSummaryPdf(minimal, bare, {
+    const bytes = await renderSurgeryPdf(minimal, bare, {
       ...doctor,
       registrationNumber: null,
       clinicName: null,

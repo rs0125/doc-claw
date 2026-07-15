@@ -64,7 +64,7 @@ function foldAge<T extends { age?: number; dateOfBirth?: Date }>(
 export const patientCreateSchema = patientBase.transform(foldAge);
 export const patientUpdateSchema = patientBase.partial().transform(foldAge);
 
-export const summaryCreateSchema = z.object({
+export const surgeryCreateSchema = z.object({
   admissionDate: isoDate,
   dischargeDate: isoDate,
   diagnosis: z.string().min(1),
@@ -77,7 +77,7 @@ export const summaryCreateSchema = z.object({
   followUpInstructions: z.string().optional(),
 });
 
-export const summaryUpdateSchema = summaryCreateSchema.partial().extend({
+export const surgeryUpdateSchema = surgeryCreateSchema.partial().extend({
   status: z.enum(["DRAFT", "FINAL"]).optional(),
 });
 

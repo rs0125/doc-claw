@@ -20,8 +20,8 @@ export function deferred(task: () => Promise<unknown>) {
 type Db = PrismaClient | Prisma.TransactionClient;
 
 export type AuditEntry = {
-  action: string; // "patient.create", "patient.read", "summary.finalize", ...
-  resourceType: "Patient" | "DischargeSummary" | "Encounter" | "Prescription" | "Attachment";
+  action: string; // "patient.create", "patient.read", "surgery.finalize", ...
+  resourceType: "Patient" | "Surgery" | "Encounter" | "Prescription" | "Attachment";
   resourceId?: string;
   details?: Prisma.InputJsonValue;
 };

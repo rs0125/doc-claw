@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { Patient } from "@/generated/prisma/client";
 import type { FormState } from "@/app/dashboard/patient-actions";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,13 @@ import { FormError } from "./form-error";
 
 type Action = (prev: FormState, fd: FormData) => Promise<FormState>;
 
+/** Whole years since an ISO date, or null if unparseable / in the future. */
+function yearsSince(iso: string): number | null {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t) || t > Date.now()) return null;
+  return Math.floor((Date.now() - t) / (365.25 * 24 * 3600_000));
+}
+
 export function PatientForm({
   action,
   patient,
@@ -22,7 +29,18 @@ export function PatientForm({
   submitLabel: string;
 }) {
   const [state, formAction] = useActionState(action, {});
-  const dob = patient?.dateOfBirth ? patient.dateOfBirth.toISOString().slice(0, 10) : "";
+  // An approximate DOB is synthetic (derived from an age), so the edit form
+  // round-trips it as an age instead of presenting it as an exact date.
+  const exactDob =
+    patient?.dateOfBirth && !patient.dobApproximate
+      ? patient.dateOfBirth.toISOString().slice(0, 10)
+      : "";
+  const [dob, setDob] = useState(exactDob);
+  const [age, setAge] = useState(() => {
+    if (!patient?.dateOfBirth || !patient.dobApproximate) return "";
+    return String(yearsSince(patient.dateOfBirth.toISOString()) ?? "");
+  });
+  const inferredAge = dob ? yearsSince(dob) : null;
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -31,10 +49,31 @@ export function PatientForm({
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Date of birth" htmlFor="dateOfBirth" hint="Use if exact date is known">
-          <Input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={dob} />
+          <Input
+            id="dateOfBirth"
+            name="dateOfBirth"
+            type="date"
+            value={dob}
+            onChange={(e) => setDob(e.target.value)}
+          />
         </Field>
-        <Field label="Age" htmlFor="age" hint="Use if DOB unknown">
-          <Input id="age" name="age" type="number" min={0} max={120} placeholder="years" />
+        <Field
+          label="Age"
+          htmlFor="age"
+          hint={inferredAge !== null ? "Calculated from date of birth" : "Use if DOB unknown"}
+        >
+          <Input
+            id="age"
+            name="age"
+            type="number"
+            min={0}
+            max={120}
+            placeholder="years"
+            value={inferredAge ?? age}
+            onChange={(e) => setAge(e.target.value)}
+            readOnly={inferredAge !== null}
+            className={inferredAge !== null ? "bg-muted text-muted-foreground" : ""}
+          />
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">

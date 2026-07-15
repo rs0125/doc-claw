@@ -1,5 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import type { DischargeSummary, Doctor, Patient, Prescription } from "@/generated/prisma/client";
+import type { Surgery, Doctor, Patient, Prescription } from "@/generated/prisma/client";
 import { formatDate } from "@/lib/format";
 import type { Medication } from "@/lib/validation";
 
@@ -103,34 +103,34 @@ function drawFooter(w: Writer) {
   w.line(`Generated on ${new Date().toISOString().slice(0, 10)} via doctor-openclaw`, { size: 8 });
 }
 
-/** Renders a discharge summary as a simple A4 PDF. Layout is intentionally plain for the MVP. */
-export async function renderDischargeSummaryPdf(
-  summary: DischargeSummary,
+/** Renders a surgery record as a simple A4 PDF. Layout is intentionally plain for the MVP. */
+export async function renderSurgeryPdf(
+  surgery: Surgery,
   patient: Patient,
   doctor: Doctor,
 ): Promise<Uint8Array> {
   const w = await createWriter();
 
-  drawLetterhead(w, "DISCHARGE SUMMARY", doctor, patient);
-  if (summary.status === "DRAFT") {
+  drawLetterhead(w, "SURGERY", doctor, patient);
+  if (surgery.status === "DRAFT") {
     w.gap();
     w.line("*** DRAFT — NOT FINALISED ***", { bold: true });
   }
   w.line(
-    `Admitted: ${formatDate(summary.admissionDate)}   Discharged: ${formatDate(summary.dischargeDate)}`,
+    `Admitted: ${formatDate(surgery.admissionDate)}   Discharged: ${formatDate(surgery.dischargeDate)}`,
   );
 
-  w.section("Diagnosis", summary.diagnosis);
-  w.section("Presenting complaint", summary.presentingComplaint);
-  w.section("Hospital course", summary.hospitalCourse);
-  w.section("Investigations", summary.investigations);
-  w.section("Treatment given", summary.treatmentGiven);
-  w.section("Condition at discharge", summary.conditionAtDischarge);
+  w.section("Diagnosis", surgery.diagnosis);
+  w.section("Presenting complaint", surgery.presentingComplaint);
+  w.section("Hospital course", surgery.hospitalCourse);
+  w.section("Investigations", surgery.investigations);
+  w.section("Treatment given", surgery.treatmentGiven);
+  w.section("Condition at discharge", surgery.conditionAtDischarge);
 
-  const meds = (summary.medicationsAtDischarge ?? []) as Medication[];
+  const meds = (surgery.medicationsAtDischarge ?? []) as Medication[];
   if (meds.length > 0) w.section("Medications at discharge", formatMedications(meds));
 
-  w.section("Follow-up instructions", summary.followUpInstructions);
+  w.section("Follow-up instructions", surgery.followUpInstructions);
   drawFooter(w);
 
   return w.save();
